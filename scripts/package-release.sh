@@ -45,4 +45,5 @@ else
     echo "Not notarized (ad-hoc build). Users must approve it in Gatekeeper — see README."
 fi
 
-shasum -a 256 "$zip" | tee "$zip.sha256"
+# Name the file without its folder, so `shasum -c` works next to the download.
+(cd "$(dirname "$zip")" && shasum -a 256 "$(basename "$zip")") | tee "$zip.sha256"
