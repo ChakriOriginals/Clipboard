@@ -46,7 +46,7 @@ struct PanelBanner: View {
                           actionTitle: "Try Again") { Task { await model.load() } }
         case .recovered(let url):
             return Notice(icon: "exclamationmark.triangle",
-                          message: "Earlier history couldn’t be opened with this Mac’s key and was set aside. Clear Everything deletes it.",
+                          message: "Earlier history couldn’t be read (damaged, or encrypted with a different key) and was set aside. Clear Everything deletes it.",
                           actionTitle: "Show File") {
                 actions.revealInFinder(url)
                 model.acknowledgeRecovery()

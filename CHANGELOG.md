@@ -12,6 +12,20 @@ All notable changes to this project are documented here. The format follows
 - Previews show invisible and direction-changing characters as ⟨U+…⟩.
 - Renamed from ClipFlow to **Clipboard**. Existing history, settings and permissions carry over: the bundle identifier is unchanged and the data folder moves from `Application Support/ClipFlow` to `Application Support/Clipboard` on first launch.
 
+### Security
+Fixes from the redesign review and security audit run 2 (see `docs/security-audit/run-2/`):
+- The rename no longer changes the history encryption constants; a test opens a history written by 0.1.0.
+- Previews show control characters (backspace, carriage return, escape) and blank-looking fillers, escape
+  file names, flag truncation correctly, and show text that pastes alongside an image or files.
+- Reveal lasts only for the current selection and panel opening; masked items aren't decrypted for preview.
+- Copies made while the panel is open no longer shift rows under ⌘1–9 or the pointer.
+- The preview reloads when a re-copy replaces an item's content.
+- Secret detection can no longer be driven into quadratic regex time by a crafted copy.
+- Oversized pasteboard changes are rejected while reading, before parsing; image decode work is budgeted per change.
+- A copy captured during Clear Everything no longer reappears afterwards.
+- Release packaging gates can no longer pass a bad build because of `grep -q` under `pipefail`.
+- CI and release build with Xcode 26 (`macos-26` runners).
+
 ## [0.1.0] - 2026-10-30
 
 ### Added

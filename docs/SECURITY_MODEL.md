@@ -15,7 +15,7 @@ with a nicer UI.
 | Someone who obtains a copy of the history file (stolen backup, synced folder, disk image, forensic copy without the user's login keychain) | **Yes** | Per-row AES-GCM; key only in Keychain; DB excluded from Time Machine. |
 | Another user account on the same Mac | **Yes** | `0700` directory, `0600` file, key in this user's login keychain. |
 | Malicious clipboard content (crafted RTF/HTML, huge payloads, weird file URLs, `javascript:` links) | **Yes** | Type allowlist, size caps, no HTML rendering, RTF parsed only via AppKit with a size cap and only when no plain text exists, URLs opened only on explicit action and only `http`/`https`, file contents never read. |
-| Shoulder-surfing the panel | Partially | Sensitive items masked; reveal requires explicit action. |
+| Shoulder-surfing the panel | Partially | Sensitive items masked; Reveal is explicit and lasts only for that selection and that opening of the panel. A masked item is not decrypted for the preview and shows no size or shape. |
 | Accidental leakage via logs or crash reports | **Yes** | No content in logs; no third-party crash reporting; no network code. |
 | Malware running as the same user with Keychain access or Accessibility | **No** | Out of scope: it can read the live pasteboard and the unlocked keychain directly. Stated honestly in README. |
 | Physical attacker with the unlocked, logged-in Mac | **No** | They can open the panel. FileVault and the screen lock are the defense. |
@@ -90,7 +90,9 @@ moment they expire; the deletion sweep runs every minute. Restored sensitive ite
 
 ## 6. Input handling rules
 
-- Read only allowlisted flavors; check `data.count` before decoding; skip, never truncate.
+- Read only allowlisted flavors; check `data.count` before decoding; skip, never truncate. The per-change
+  item, byte and text caps are enforced while reading, so an oversized change is never fully read or
+  RTF-parsed on the main thread.
 - File URLs: accept only `file://` URLs that parse; store the URL and display the last path component.
   Never read, stat for content, or open files.
 - URLs: "Open" only for `http`/`https` schemes, only via explicit user action, via `NSWorkspace.open`.
@@ -99,13 +101,23 @@ moment they expire; the deletion sweep runs every minute. Restored sensitive ite
 - RTF: parsed via AppKit only to derive a preview when no plain text exists; capped at 2 MB.
 - Images: decoded with ImageIO for thumbnailing; capped at 10 MB encoded and 100 megapixels per image, with
   overflow-checked, positive-only dimension math. TIFF for other apps is produced lazily on request and only
-  for images up to 25 megapixels.
-- Per pasteboard change: at most 1,000 items and 100 MB across all flavors; anything larger is skipped.
-- HTML preview stripping is a single linear pass (no backtracking regex on untrusted input).
+  for the first image of a restore only, up to 25 megapixels. All TIFFs in one change share one 100-megapixel
+  decode budget, checked from image headers before decoding.
+- Per pasteboard change: at most 1,000 items and 100 MB across all flavors, checked again after images are
+  converted to PNG; anything larger is skipped.
+- HTML preview stripping is a single linear pass, and secret-detection patterns cannot backtrack
+  quadratically (no backtracking regex on untrusted input).
 - Capture is serialized: one snapshot is processed at a time and a flood of changes coalesces to the latest,
   so a writer cannot pile up decode work. History order uses the time the change was observed.
 - Auto-paste posts ⌘V only if the pasteboard still holds Clipboard's own write and the app that was frontmost
   when the panel opened is still frontmost; a second ↩ during a restore is ignored.
+- While the panel is open, new copies never insert or reorder visible rows (they update in place and appear
+  when the panel reopens or the user searches), so ⌘1–9 and hover always pick what the user saw.
+- What you see is what you paste: the preview shows every pasted line, the image, every file and the
+  text that rides along with them, names each flavor, and shows invisible, direction-changing and control
+  characters (other than tab and line breaks) as ⟨U+…⟩, in text and file names. The preview is tied to the
+  exact item version it was built from and reloads when a re-copy replaces the content.
+- A capture still in progress when history is cleared is dropped, not saved into the fresh history.
 - Code: displayed as text in a monospaced font. Never executed or syntax-highlighted via external tools.
 
 ## 7. Process and platform
