@@ -309,6 +309,27 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(preview?.flavors, ["Plain Text"])
     }
 
+    func testRevealLastsOnlyForThatSelectionAndOpening() async {
+        let model = await makeModel()
+        await ingest(model, "password = hunter2")
+        await ingest(model, "api_key = abc123")
+        let first = model.results[0].id
+        model.selectedID = first
+        model.reveal(first)
+        XCTAssertEqual(model.revealedID, first)
+
+        model.moveSelection(1)
+        model.moveSelection(-1)
+        XCTAssertNil(model.revealedID, "moving away hides it again")
+
+        model.reveal(first)
+        model.resetForPresentation()
+        XCTAssertNil(model.revealedID, "reopening the panel hides it again")
+
+        model.reveal(model.results[1].id)
+        XCTAssertNil(model.revealedID, "only the selected item can be revealed")
+    }
+
     func testPreviewOfExpiredItemIsUnavailable() async {
         settings.sensitiveExpiryMinutes = 10
         let model = await makeModel()

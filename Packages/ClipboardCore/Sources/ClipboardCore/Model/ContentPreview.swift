@@ -29,9 +29,10 @@ public struct ContentPreview: Equatable, Sendable {
             first.first { $0.type == type }.flatMap { String(data: $0.data, encoding: .utf8) }
         }
 
+        var invisible = false
         let fileNames = all.filter { $0.type == PasteboardType.fileURL }
             .compactMap { String(data: $0.data, encoding: .utf8).flatMap(URL.init(string:)) }
-            .filter(\.isFileURL).map(\.lastPathComponent)
+            .filter(\.isFileURL).map { escaped($0.lastPathComponent, found: &invisible) }
 
         var raw = string(PasteboardType.plainText) ?? string(PasteboardType.url)
         if raw == nil, fileNames.isEmpty, let html = string(PasteboardType.html) {
@@ -40,27 +41,35 @@ public struct ContentPreview: Equatable, Sendable {
 
         var text: String?
         var truncated = false
-        var invisible = false
         if let raw {
             let limited = raw.count > maxCharacters ? String(raw.prefix(maxCharacters)) : raw
-            truncated = limited.count < raw.count
-            var shown = ""
-            for scalar in limited.unicodeScalars {
-                if scalar.properties.generalCategory == .format, scalar != "\u{200D}" { // keep ZWJ inside emoji
-                    shown += "⟨U+\(String(scalar.value, radix: 16, uppercase: true))⟩"
-                    invisible = true
-                } else {
-                    shown.unicodeScalars.append(scalar)
-                }
-            }
+            let shown = escaped(limited, found: &invisible)
+            truncated = limited.count < raw.count || shown.count > maxCharacters
             text = String(shown.prefix(maxCharacters))
         }
-
         return ContentPreview(
             text: text, isTruncated: truncated,
-            lineCount: text.map { $0.split(separator: "\n", omittingEmptySubsequences: false).count } ?? 0,
+            lineCount: text.map { $0.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).count } ?? 0,
             hasInvisibleCharacters: invisible,
             imagePNG: first.first { $0.type == PasteboardType.png }?.data,
             fileNames: fileNames, flavors: flavors, itemCount: content.items.count)
+    }
+
+    /// Makes characters that render as nothing but still act when pasted visible as ⟨U+XXXX⟩:
+    /// format/bidi characters (except ZWJ inside emoji) and control characters other than tab and line breaks.
+    static func escaped(_ string: String, found: inout Bool) -> String {
+        let scalars = Array(string.unicodeScalars)
+        var out = String.UnicodeScalarView()
+        for (i, scalar) in scalars.enumerated() {
+            let category = scalar.properties.generalCategory
+            let lineBreak = scalar == "\n" || (scalar == "\r" && i + 1 < scalars.count && scalars[i + 1] == "\n")
+            if (category == .format && scalar != "\u{200D}") || (category == .control && scalar != "\t" && !lineBreak) {
+                found = true
+                out.append(contentsOf: "⟨U+\(String(scalar.value, radix: 16, uppercase: true))⟩".unicodeScalars)
+            } else {
+                out.append(scalar)
+            }
+        }
+        return String(out)
     }
 }

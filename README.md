@@ -25,7 +25,7 @@ Like Windows' Win + V, built natively for the Mac.
 ## Requirements
 
 - macOS 14 Sonoma or later (Apple silicon or Intel).
-- To build: Xcode 16 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+- To build: Xcode 26 or later (the macOS 26 SDK provides Liquid Glass; the app still runs on macOS 14+) and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
 
 ## Install
 

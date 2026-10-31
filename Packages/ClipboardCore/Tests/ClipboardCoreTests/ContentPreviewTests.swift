@@ -47,6 +47,34 @@ final class ContentPreviewTests: XCTestCase {
         XCTAssertTrue(p.hasInvisibleCharacters)
     }
 
+    func testTerminalControlCharactersAreShown() {
+        // Backspaces, a lone carriage return and ESC are invisible in a label but act in a terminal.
+        let text = "ls\u{8}\u{8}rm x\recho ok\u{1B}[201~"
+        let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, text)]]))
+        XCTAssertEqual(p.text, "ls⟨U+8⟩⟨U+8⟩rm x⟨U+D⟩echo ok⟨U+1B⟩[201~")
+        XCTAssertTrue(p.hasInvisibleCharacters)
+    }
+
+    func testTabsAndLineBreaksStayReal() {
+        let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, "a\tb\r\nc\nd")]]))
+        XCTAssertEqual(p.text, "a\tb\r\nc\nd")
+        XCTAssertEqual(p.lineCount, 3)
+        XCTAssertFalse(p.hasInvisibleCharacters)
+    }
+
+    func testFileNamesShowInvisibleCharacters() {
+        let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.fileURL, "file:///tmp/invoice%E2%80%AEfdp.exe")]]))
+        XCTAssertEqual(p.fileNames, ["invoice⟨U+202E⟩fdp.exe"])
+        XCTAssertTrue(p.hasInvisibleCharacters)
+    }
+
+    func testTruncationIsReportedWhenMarkersPushTextPastTheLimit() {
+        let text = String(repeating: "a", count: ContentPreview.maxCharacters - 5) + "\u{202E}abc"
+        let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, text)]]))
+        XCTAssertTrue(p.isTruncated)
+        XCTAssertLessThanOrEqual(p.text?.count ?? 0, ContentPreview.maxCharacters)
+    }
+
     func testLongTextIsTruncatedForDisplay() {
         let long = String(repeating: "a", count: ContentPreview.maxCharacters + 10)
         let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, long)]]))

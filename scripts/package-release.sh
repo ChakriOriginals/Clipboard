@@ -19,11 +19,13 @@ if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
         --entitlements Clipboard/Resources/Clipboard.entitlements --sign "$DEVELOPER_ID_APPLICATION" "$app"
 fi
 codesign --verify --strict --verbose=2 "$app"
-if codesign -d --entitlements :- "$app" 2>/dev/null | grep -q "get-task-allow"; then
+# No `grep -q` in these gates: it exits at the first match, the producer dies of SIGPIPE,
+# and with pipefail the whole test turns false, so a bad build would pass.
+if codesign -d --entitlements :- "$app" 2>/dev/null | grep "get-task-allow" >/dev/null; then
     echo "Refusing to package: build carries the get-task-allow debugging entitlement." >&2
     exit 1
 fi
-if nm "$app/Contents/MacOS/Clipboard" 2>/dev/null | grep -q "__llvm_profile"; then
+if nm "$app/Contents/MacOS/Clipboard" 2>/dev/null | grep "__llvm_profile" >/dev/null; then
     echo "Refusing to package: build is instrumented for code coverage." >&2
     exit 1
 fi

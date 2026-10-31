@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-# Clipboard build entry points. Requires Xcode 16+ and `brew install xcodegen`.
+# Clipboard build entry points. Requires Xcode 26+ (macOS 26 SDK) and `brew install xcodegen`.
 DERIVED := build/DerivedData
 XCB := xcodebuild -project Clipboard.xcodeproj -scheme Clipboard -derivedDataPath $(DERIVED)
 

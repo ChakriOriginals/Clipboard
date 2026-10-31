@@ -10,7 +10,6 @@ struct PreviewPane: View {
     let item: ClipItem?
     @State private var preview: ContentPreview?
     @State private var image: NSImage?
-    @State private var revealedID: UUID?
 
     private static let byteFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -36,7 +35,9 @@ struct PreviewPane: View {
     private func load(_ item: ClipItem) async {
         preview = nil
         image = nil
-        guard let loaded = await model.preview(for: item.id), !Task.isCancelled else { return }
+        // Let fast arrow-key repeats pass without decrypting every row they cross.
+        try? await Task.sleep(for: .milliseconds(50))
+        guard !Task.isCancelled, let loaded = await model.preview(for: item.id), !Task.isCancelled else { return }
         preview = loaded
         if let png = loaded.imagePNG, settings.showThumbnails {
             // Bounded decode: never expand a huge image just to preview it.
@@ -51,7 +52,7 @@ struct PreviewPane: View {
 
     @ViewBuilder
     private func content(for item: ClipItem) -> some View {
-        if item.isSensitive && revealedID != item.id {
+        if item.isSensitive && model.revealedID != item.id {
             VStack(spacing: 10) {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 28, weight: .light))
@@ -60,7 +61,7 @@ struct PreviewPane: View {
                 Text("Hidden so it doesn’t appear on screen.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Button("Reveal") { revealedID = item.id }
+                Button("Reveal") { model.reveal(item.id) }
                     .controlSize(.small)
                     .padding(.top, 2)
             }

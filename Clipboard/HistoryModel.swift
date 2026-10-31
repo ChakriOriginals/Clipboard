@@ -23,7 +23,9 @@ final class HistoryModel {
     private(set) var results: [ClipItem] = []
     private(set) var status: StoreStatus = .loading
     var query = SearchQuery() { didSet { recompute() } }
-    var selectedID: UUID?
+    var selectedID: UUID? { didSet { if selectedID != revealedID { revealedID = nil } } }
+    /// The sensitive item the user chose to show. Cleared when the selection moves or the panel reopens.
+    private(set) var revealedID: UUID?
 
     @ObservationIgnored private let store: ClipStore
     @ObservationIgnored private let settings: SettingsStore
@@ -247,6 +249,11 @@ final class HistoryModel {
     func resetForPresentation() {
         query = SearchQuery()
         selectedID = results.first?.id
+        revealedID = nil
+    }
+
+    func reveal(_ id: UUID) {
+        if id == selectedID { revealedID = id }
     }
 
     func moveSelection(_ delta: Int) {

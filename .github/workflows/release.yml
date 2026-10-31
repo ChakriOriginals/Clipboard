@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26  # Xcode 26 SDK: needed for NSGlassEffectView
     timeout-minutes: 45
     # Signing and notarization secrets live in this environment. Configure it in
     # Settings › Environments with required reviewers and a deployment rule for v* tags only.
