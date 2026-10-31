@@ -38,6 +38,17 @@ final class PasteboardWriterTests: XCTestCase {
         XCTAssertNotNil(NSImage(pasteboard: pb))
     }
 
+    func testOnlyTheFirstImageOffersTIFF() {
+        // TIFF is uncompressed: one lazy conversion per restore, not one per item of a 1,000-item entry.
+        let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 4, bitsPerSample: 8, samplesPerPixel: 4,
+                                   hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+        let png = rep.representation(using: .png, properties: [:])!
+        let items = (0..<3).map { _ in [Representation(type: PasteboardType.png, data: png)] }
+        PasteboardWriter.write(ClipContent(items: items), to: pb)
+        let offered = pb.pasteboardItems?.map { $0.types.contains(.tiff) }
+        XCTAssertEqual(offered, [true, false, false])
+    }
+
     func testSensitiveRestoreIsMarkedConcealed() {
         let content = ClipContent(items: [[Representation(type: PasteboardType.plainText, data: Data("secret".utf8))]])
         PasteboardWriter.write(content, to: pb, concealed: true)

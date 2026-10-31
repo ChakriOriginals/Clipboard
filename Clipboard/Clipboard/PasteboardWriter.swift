@@ -7,8 +7,8 @@ enum PasteboardWriter {
     /// Keeps the lazy TIFF providers alive until the pasteboard changes again.
     private static var providers: [TIFFProvider] = []
 
-    /// Writes every item and flavor. PNG images also offer TIFF, produced only if another app asks for
-    /// it and only for images up to `TIFFProvider.maxPixels`. `concealed` adds the nspasteboard.org
+    /// Writes every item and flavor. The first PNG image also offers TIFF, produced only if another app
+    /// asks for it and only up to `TIFFProvider.maxPixels`; one per restore, since TIFF is uncompressed. `concealed` adds the nspasteboard.org
     /// marker so other clipboard tools skip a restored secret. Returns the resulting change count so
     /// the monitor can ignore this write.
     @discardableResult
@@ -20,7 +20,7 @@ enum PasteboardWriter {
             for rep in reps {
                 item.setData(rep.data, forType: NSPasteboard.PasteboardType(rep.type))
             }
-            if let png = reps.first(where: { $0.type == PasteboardType.png })?.data,
+            if providers.isEmpty, let png = reps.first(where: { $0.type == PasteboardType.png })?.data,
                !reps.contains(where: { $0.type == PasteboardType.tiff }) {
                 let provider = TIFFProvider(png: png)
                 providers.append(provider)
@@ -47,8 +47,9 @@ final class TIFFProvider: NSObject, NSPasteboardItemDataProvider, @unchecked Sen
     }
 
     func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem, provideDataForType type: NSPasteboard.PasteboardType) {
-        guard type == .tiff, let size = Thumbnailer.pixelSize(png),
-              size.width > 0, size.height > 0, size.width.multipliedReportingOverflow(by: size.height).partialValue <= Self.maxPixels,
+        guard type == .tiff, let size = Thumbnailer.pixelSize(png), size.width > 0, size.height > 0,
+              case let (pixels, overflow) = size.width.multipliedReportingOverflow(by: size.height),
+              !overflow, pixels <= Self.maxPixels,
               let tiff = NSBitmapImageRep(data: png)?.tiffRepresentation
         else { return }
         item.setData(tiff, forType: .tiff)
