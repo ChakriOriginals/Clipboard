@@ -118,6 +118,10 @@ moment they expire; the deletion sweep runs every minute. Restored sensitive ite
   characters (other than tab and line breaks) as ⟨U+…⟩, in text and file names. The preview is tied to the
   exact item version it was built from and reloads when a re-copy replaces the content.
 - A capture still in progress when history is cleared is dropped, not saved into the fresh history.
+- Unpinned history is bounded by count, age and a 2 GB total size; deletes that free more than 64 MB
+  compact the database so space is returned.
+- HTML is reduced to text by a linear scanner that ends comments only at `-->` and keeps every other
+  character, so the preview's escaping sees what a rich-text paste will render.
 - Code: displayed as text in a monospaced font. Never executed or syntax-highlighted via external tools.
 
 ## 7. Process and platform
