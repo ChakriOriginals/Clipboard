@@ -7,6 +7,6 @@
 
 Each run directory holds the human-readable report (`REPORT.md`, `NEEDS-VALIDATION.md`, `FINDINGS-DETAIL.md`) and the
 machine-readable records (`findings.json`, `coverage-ledger.json`, `run-metadata.json`), validated with the
-security-audit skill's `validate-findings.cjs` and `validate-coverage-ledger.cjs`. A future run should re-verify the
+audit tooling's findings and coverage-ledger validators. A future run should re-verify the
 remediated leads against the current source and execute the bounded local validation plans in a sandbox that can
 enforce memory and disk limits.

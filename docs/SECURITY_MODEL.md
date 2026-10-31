@@ -72,8 +72,8 @@ and documented in README and PRIVACY.md.
 **Heuristic detection** (local, pure function, plain text only):
 1. PEM private key blocks (`-----BEGIN … PRIVATE KEY-----`).
 2. Known token formats: AWS access key (`AKIA[0-9A-Z]{16}`), GitHub (`ghp_`, `gho_`, `ghu_`, `ghs_`,
-   `github_pat_`), GitLab `glpat-`, Slack `xox[abprs]-`, Stripe `sk_live_` / `rk_live_`, OpenAI/Anthropic
-   `sk-…` (≥ 20 chars), Google API `AIza…` (39 chars), JWT (`eyJ…\.eyJ…\.…`).
+   `github_pat_`), GitLab `glpat-`, Slack `xox[abprs]-`, Stripe `sk_live_` / `rk_live_`, `sk-…` API keys
+   (≥ 20 chars), Google API `AIza…` (39 chars), JWT (`eyJ…\.eyJ…\.…`).
 3. Credential assignments: `(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*\S+`.
 4. Password-like: single line, no whitespace, 8–128 chars, not a URL/email/path, ≥ 3 of 4 character
    classes, Shannon entropy ≥ 3.0 bits/char.
