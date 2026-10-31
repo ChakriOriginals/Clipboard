@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-31
+
 ### Changed
 - New panel design: history list with a live preview of exactly what will be pasted (all lines, images, files,
   and the formats that will be pasted); Liquid Glass on macOS 26 and later, vibrancy on earlier versions; native
