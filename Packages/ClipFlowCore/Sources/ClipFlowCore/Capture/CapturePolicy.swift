@@ -90,10 +90,12 @@ public enum CapturePolicy {
             if let imageSize { preview = "Image \(imageSize.width)×\(imageSize.height)" }
         }
 
+        // Scan every stored text flavor of every item, not just the canonical one: a secret can ride
+        // along beside an image, in HTML, or in a later item.
+        let textFlavors: Set<String> = [PasteboardType.plainText, PasteboardType.html, PasteboardType.rtf, PasteboardType.url]
+        let storedTexts = items.joined().filter { textFlavors.contains($0.type) }.map { String(decoding: $0.data, as: UTF8.self) }
         var sensitive = false
-        if [.text, .richText, .code, .url].contains(classification.kind),
-           let text = String(data: classification.canonical, encoding: .utf8),
-           SensitivityDetector.isSensitive(text) {
+        if storedTexts.contains(where: SensitivityDetector.isSensitive) {
             if settings.sensitiveHandling == .dontSave { return .skip(.sensitive) }
             sensitive = true
         }

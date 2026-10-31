@@ -51,11 +51,32 @@ public enum ContentClassifier {
         return Classification(kind: kind, previewText: preview(text), fileNames: [], canonical: Data(text.utf8))
     }
 
-    /// Whitespace-collapsed, truncated on grapheme boundaries.
+    /// One line for display: whitespace runs collapse to a space, runs containing a line break show as
+    /// " ⏎ " (so hidden extra lines are visible), invisible format/bidi controls are dropped, and the
+    /// result is truncated on grapheme boundaries.
     public static func preview(_ text: String, limit: Int = 1000) -> String {
-        let collapsed = text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        guard collapsed.count > limit else { return collapsed }
-        return String(collapsed.prefix(limit)) + "…"
+        var out = ""
+        var count = 0
+        var pendingSpace = false
+        var pendingBreak = false
+        for ch in text {
+            if ch.unicodeScalars.allSatisfy({ $0.properties.generalCategory == .format }) { continue }
+            if ch.isWhitespace {
+                pendingSpace = true
+                if ch.isNewline { pendingBreak = true }
+                continue
+            }
+            if count > 0 && pendingSpace {
+                out += pendingBreak ? " ⏎ " : " "
+                count += pendingBreak ? 3 : 1
+            }
+            pendingSpace = false
+            pendingBreak = false
+            if count >= limit { return out + "…" }
+            out.append(ch)
+            count += 1
+        }
+        return out
     }
 
     /// Non-nil only for a single trimmed http(s) URL with a host — the only URLs ClipFlow will open.

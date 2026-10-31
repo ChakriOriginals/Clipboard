@@ -183,7 +183,20 @@ public actor ClipStore {
             existing = $0.text(0).flatMap(UUID.init(uuidString:))
         }
         if let existing {
-            try bump(id: existing, now: now)
+            // Same canonical text, but other flavors/items may differ: store what was copied most recently,
+            // keeping the entry's identity, pin and any sensitivity flag.
+            let summary = ClipSummary(previewText: draft.previewText, sourceAppBundleID: draft.sourceAppBundleID,
+                                      sourceAppName: draft.sourceAppName, fileNames: draft.fileNames)
+            let aad = existing.uuidString
+            try db.run("""
+                UPDATE clips SET last_copied_at = ?, summary = ?, content = ?, thumbnail = ?, byte_size = ?,
+                                 is_sensitive = MAX(is_sensitive, ?)
+                WHERE id = ?
+                """, [.double(now.timeIntervalSince1970),
+                      .blob(try box.seal(try Self.encoder.encode(summary), aad: "summary:\(aad)")),
+                      .blob(try box.seal(try Self.encoder.encode(draft.content), aad: "content:\(aad)")),
+                      try draft.thumbnailPNG.map { SQLValue.blob(try box.seal($0, aad: "thumbnail:\(aad)")) } ?? .null,
+                      .int(Int64(draft.byteSize)), .int(draft.isSensitive ? 1 : 0), .text(aad)])
             return try item(id: existing)
         }
 

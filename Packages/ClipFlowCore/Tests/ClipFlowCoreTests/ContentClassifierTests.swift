@@ -115,7 +115,7 @@ final class ContentClassifierTests: XCTestCase {
     }
 
     func testPreviewCollapsesWhitespace() {
-        XCTAssertEqual(ContentClassifier.preview("  a\n\n b\t\tc  "), "a b c")
+        XCTAssertEqual(ContentClassifier.preview("  a\n\n b\t\tc  "), "a ⏎ b c")
     }
 
     func testPreviewDoesNotSplitEmoji() {
@@ -136,5 +136,10 @@ final class ContentClassifierTests: XCTestCase {
                     "x-apple.systempreferences:com.apple"] {
             XCTAssertNil(ContentClassifier.openableURL(bad), bad)
         }
+    }
+
+    func testPreviewMarksLineBreaksAndDropsInvisibleControls() {
+        XCTAssertEqual(ContentClassifier.preview("ls\nrm -rf ~"), "ls ⏎ rm -rf ~")
+        XCTAssertEqual(ContentClassifier.preview("safe\u{202E}txt.exe\u{200B}"), "safetxt.exe")
     }
 }

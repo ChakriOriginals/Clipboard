@@ -109,6 +109,20 @@ final class CapturePolicyTests: XCTestCase {
         XCTAssertEqual(skipReason(CapturePolicy.decide(snapshot(text("password = hunter2")), settings: settings)), .sensitive)
     }
 
+    func testSecretInTextStoredBesideAnImageIsFlagged() throws {
+        let items = [[Representation(type: PasteboardType.png, data: makeImage(width: 8, height: 8)),
+                      Representation(type: PasteboardType.plainText, data: Data("password = hunter2".utf8))]]
+        let d = try draft(CapturePolicy.decide(snapshot(items), settings: settings))
+        XCTAssertEqual(d.kind, .image)
+        XCTAssertTrue(d.isSensitive)
+    }
+
+    func testSecretInLaterItemIsFlagged() throws {
+        let items = [[Representation(type: PasteboardType.plainText, data: Data("hello".utf8))],
+                     [Representation(type: PasteboardType.html, data: Data("<p>api_key=abc123</p>".utf8))]]
+        XCTAssertTrue(try draft(CapturePolicy.decide(snapshot(items), settings: settings)).isSensitive)
+    }
+
     func testNonAllowlistedFlavorsDropped() throws {
         let items = [[Representation(type: PasteboardType.plainText, data: Data("x".utf8)),
                       Representation(type: "com.apple.private.whatever", data: Data([9, 9]))]]

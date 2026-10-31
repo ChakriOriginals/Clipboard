@@ -282,4 +282,22 @@ final class ClipStoreTests: XCTestCase {
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasPrefix("history") }
         XCTAssertEqual(leftovers, ["history.sqlite"])
     }
+
+    func testRecopyReplacesStoredPayloadButKeepsIdentity() async throws {
+        let store = try await makeStore()
+        let plain = Representation(type: "public.utf8-plain-text", data: Data("https://example.test/a".utf8))
+        let html = Representation(type: "public.html", data: Data("<a href=\"https://other.test/\">https://example.test/a</a>".utf8))
+        func draft(_ reps: [Representation]) -> ClipDraft {
+            ClipDraft(kind: .url, previewText: "https://example.test/a", sourceAppBundleID: nil, sourceAppName: nil, fileNames: [],
+                      isSensitive: false, content: ClipContent(items: [reps]), canonical: Data("https://example.test/a".utf8),
+                      thumbnailPNG: nil, byteSize: 1)
+        }
+        let first = try await store.insertOrBump(draft([plain, html]), now: now)
+        try await store.setPinned(first.id, true)
+        let second = try await store.insertOrBump(draft([plain]), now: now.addingTimeInterval(5))
+        XCTAssertEqual(second.id, first.id)
+        XCTAssertTrue(second.isPinned)
+        let content = try await store.content(id: first.id)
+        XCTAssertEqual(content.items[0].map(\.type), ["public.utf8-plain-text"])
+    }
 }
