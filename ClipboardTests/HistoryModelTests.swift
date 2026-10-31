@@ -328,6 +328,29 @@ final class HistoryModelTests: XCTestCase {
 
         model.reveal(model.results[1].id)
         XCTAssertNil(model.revealedID, "only the selected item can be revealed")
+
+        model.selectedID = first
+        model.reveal(first)
+        await ingest(model, "api_key = abc123") // `first` is this entry; the copy dedups onto it
+        XCTAssertNil(model.revealedID, "a re-copy that replaces the content needs a new Reveal")
+    }
+
+    func testCapturesWhileOpenNeverReorderTheVisibleList() async {
+        let model = await makeModel()
+        await ingest(model, "one", "two", "three")
+        model.resetForPresentation()
+        XCTAssertEqual(previews(model), ["three", "two", "one"])
+
+        await ingest(model, "new copy", "one") // a new item, and a re-copy that would jump to the top
+        XCTAssertEqual(previews(model), ["three", "two", "one"], "positions behind ⌘1–9 and hover stay put")
+        XCTAssertEqual(model.results[2].lastCopiedAt, clock, "rows still show their latest data")
+
+        model.query.text = "o"
+        XCTAssertEqual(previews(model), ["one", "new copy", "two"], "the user's own search shows everything")
+
+        model.endPresentation()
+        model.query = SearchQuery()
+        XCTAssertEqual(previews(model), ["one", "new copy", "three", "two"])
     }
 
     func testPreviewOfExpiredItemIsUnavailable() async {

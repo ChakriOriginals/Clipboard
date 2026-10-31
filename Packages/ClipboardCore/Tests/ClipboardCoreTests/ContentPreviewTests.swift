@@ -55,6 +55,12 @@ final class ContentPreviewTests: XCTestCase {
         XCTAssertTrue(p.hasInvisibleCharacters)
     }
 
+    func testBlankLookingFillersAreShownButEmojiStayIntact() {
+        let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, "a\u{3164}b \u{2764}\u{FE0F} 👩‍💻")]]))
+        XCTAssertEqual(p.text, "a⟨U+3164⟩b \u{2764}\u{FE0F} 👩‍💻")
+        XCTAssertTrue(p.hasInvisibleCharacters)
+    }
+
     func testTabsAndLineBreaksStayReal() {
         let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, "a\tb\r\nc\nd")]]))
         XCTAssertEqual(p.text, "a\tb\r\nc\nd")

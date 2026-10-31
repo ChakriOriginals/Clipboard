@@ -22,7 +22,7 @@ final class HistoryModel {
     private(set) var items: [ClipItem] = []
     private(set) var results: [ClipItem] = []
     private(set) var status: StoreStatus = .loading
-    var query = SearchQuery() { didSet { recompute() } }
+    var query = SearchQuery() { didSet { refreeze() } }
     var selectedID: UUID? { didSet { if selectedID != revealedID { revealedID = nil } } }
     /// The sensitive item the user chose to show. Cleared when the selection moves or the panel reopens.
     private(set) var revealedID: UUID?
@@ -31,6 +31,9 @@ final class HistoryModel {
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private var searchKeys: [UUID: String] = [:]
+    /// While the panel is open, the row order the user is looking at. Captures update rows in place but
+    /// never insert or move them, so ⌘1–9 and hover keep pointing at what the user saw.
+    @ObservationIgnored private var frozenOrder: [UUID]?
     @ObservationIgnored private var pendingCapture: (snapshot: PasteboardSnapshot, capturedAt: Date)?
     @ObservationIgnored private var captureWorker: Task<Void, Never>?
     @ObservationIgnored private let thumbnails: NSCache<NSUUID, NSImage> = {
@@ -247,9 +250,17 @@ final class HistoryModel {
 
     /// Called each time the panel opens: clear the search and select the most recent entry.
     func resetForPresentation() {
+        frozenOrder = nil
         query = SearchQuery()
+        frozenOrder = results.map(\.id)
         selectedID = results.first?.id
         revealedID = nil
+    }
+
+    /// Called when the panel closes: captures made while it was open take their places.
+    func endPresentation() {
+        frozenOrder = nil
+        recompute()
     }
 
     func reveal(_ id: UUID) {
@@ -271,6 +282,7 @@ final class HistoryModel {
     }
 
     private func upsert(_ item: ClipItem) {
+        if item.id == revealedID { revealedID = nil } // changed content or sensitivity needs a new Reveal
         items.removeAll { $0.id == item.id }
         let index = items.firstIndex { $0.lastCopiedAt <= item.lastCopiedAt } ?? items.endIndex
         items.insert(item, at: index)
@@ -290,9 +302,23 @@ final class HistoryModel {
         recompute(preferredIndex: oldIndex)
     }
 
+    /// A search the user typed is their own change: show everything, then hold that order again.
+    private func refreeze() {
+        let frozen = frozenOrder != nil
+        frozenOrder = nil
+        recompute()
+        if frozen { frozenOrder = results.map(\.id) }
+    }
+
     private func recompute(preferredIndex: Int? = nil) {
         let visible = items.filter { !isExpired($0) }
-        results = SearchIndex.filter(visible, keys: searchKeys, query: query, now: now(), calendar: .current)
+        let fresh = SearchIndex.filter(visible, keys: searchKeys, query: query, now: now(), calendar: .current)
+        if let frozenOrder {
+            let byID = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+            results = frozenOrder.compactMap { byID[$0] }
+        } else {
+            results = fresh
+        }
         if let selectedID, results.contains(where: { $0.id == selectedID }) { return }
         if results.isEmpty {
             selectedID = nil

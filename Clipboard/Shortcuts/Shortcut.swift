@@ -14,7 +14,8 @@ struct Shortcut: Codable, Equatable, Sendable {
         self.modifiers = modifiers.intersection(Self.relevantModifiers).rawValue
     }
 
-    var modifierFlags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(rawValue: modifiers) }
+    // Masked here too: a decoded value skips init's filtering.
+    var modifierFlags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(rawValue: modifiers).intersection(Self.relevantModifiers) }
 
     /// macOS 15+ rejects hotkeys whose only modifiers are ⌥ or ⌥⇧; require ⌘ or ⌃.
     var isValid: Bool {

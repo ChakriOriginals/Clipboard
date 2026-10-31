@@ -56,14 +56,19 @@ public struct ContentPreview: Equatable, Sendable {
     }
 
     /// Makes characters that render as nothing but still act when pasted visible as ⟨U+XXXX⟩:
-    /// format/bidi characters (except ZWJ inside emoji) and control characters other than tab and line breaks.
+    /// format/bidi and other default-ignorable characters (except the joiner and variation selectors that
+    /// build emoji) and control characters other than tab and line breaks.
+    private static let emojiParts: Set<Unicode.Scalar> = ["\u{200D}", "\u{FE0E}", "\u{FE0F}"]
+
     static func escaped(_ string: String, found: inout Bool) -> String {
         let scalars = Array(string.unicodeScalars)
         var out = String.UnicodeScalarView()
         for (i, scalar) in scalars.enumerated() {
-            let category = scalar.properties.generalCategory
+            let properties = scalar.properties
+            let category = properties.generalCategory
+            let invisible = (category == .format || properties.isDefaultIgnorableCodePoint) && !emojiParts.contains(scalar)
             let lineBreak = scalar == "\n" || (scalar == "\r" && i + 1 < scalars.count && scalars[i + 1] == "\n")
-            if (category == .format && scalar != "\u{200D}") || (category == .control && scalar != "\t" && !lineBreak) {
+            if invisible || (category == .control && scalar != "\t" && !lineBreak) {
                 found = true
                 out.append(contentsOf: "⟨U+\(String(scalar.value, radix: 16, uppercase: true))⟩".unicodeScalars)
             } else {

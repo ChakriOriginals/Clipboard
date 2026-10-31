@@ -90,6 +90,7 @@ final class PanelController {
         guard panel.isVisible else { return }
         removeMonitors()
         panel.orderOut(nil)
+        app.model.endPresentation()
     }
 
     private func position() {

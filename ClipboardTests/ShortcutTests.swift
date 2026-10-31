@@ -46,6 +46,15 @@ final class ShortcutTests: XCTestCase {
         XCTAssertTrue(Shortcut(keyCode: UInt32(kVK_ANSI_V), modifiers: [.command, .option]).isValid)
     }
 
+    func testDecodedShortcutIgnoresExtraModifierBits() throws {
+        // ⌘ plus the Fn bit, as a hand-edited defaults value: must still be seen as reserved ⌘V.
+        let raw = NSEvent.ModifierFlags([.command, .function]).rawValue
+        let json = Data(#"{"keyCode":\#(kVK_ANSI_V),"modifiers":\#(raw)}"#.utf8)
+        let decoded = try JSONDecoder().decode(Shortcut.self, from: json)
+        XCTAssertFalse(decoded.isValid)
+        XCTAssertEqual(decoded.modifierFlags, .command)
+    }
+
     func testMenuKeyEquivalent() {
         XCTAssertEqual(Shortcut.default.menuKeyEquivalent, "v")
         XCTAssertNil(Shortcut(keyCode: UInt32(kVK_F5), modifiers: [.command]).menuKeyEquivalent)
