@@ -39,3 +39,10 @@ func makeImage(width: Int, height: Int, type: UTType = .png) -> Data {
     CGImageDestinationFinalize(destination)
     return data as Data
 }
+
+func makeItem(_ preview: String, kind: ClipKind = .text, lastCopied: Date = Date(timeIntervalSince1970: 1_800_000_000),
+              pinned: Bool = false, sensitive: Bool = false, fileNames: [String] = []) -> ClipItem {
+    ClipItem(id: UUID(), kind: kind, createdAt: lastCopied, lastCopiedAt: lastCopied, contentHash: Data(),
+             isPinned: pinned, isSensitive: sensitive, deviceID: "d", byteSize: preview.utf8.count, hasThumbnail: false,
+             summary: ClipSummary(previewText: preview, sourceAppBundleID: nil, sourceAppName: nil, fileNames: fileNames))
+}
