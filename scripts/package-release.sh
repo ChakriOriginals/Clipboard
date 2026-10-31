@@ -19,6 +19,14 @@ if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
         --entitlements ClipFlow/Resources/ClipFlow.entitlements --sign "$DEVELOPER_ID_APPLICATION" "$app"
 fi
 codesign --verify --strict --verbose=2 "$app"
+if codesign -d --entitlements :- "$app" 2>/dev/null | grep -q "get-task-allow"; then
+    echo "Refusing to package: build carries the get-task-allow debugging entitlement." >&2
+    exit 1
+fi
+if nm "$app/Contents/MacOS/ClipFlow" 2>/dev/null | grep -q "__llvm_profile"; then
+    echo "Refusing to package: build is instrumented for code coverage." >&2
+    exit 1
+fi
 
 rm -f "$zip"
 ditto -c -k --keepParent "$app" "$zip"

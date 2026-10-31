@@ -20,7 +20,7 @@ test-app: generate
 	$(XCB) -destination 'platform=macOS,arch=$(shell uname -m)' test 2>&1 | grep -E '(Test Case .*failed|Executed [0-9]+ tests|[*][*] TEST|[.]swift:[0-9]+:.*error:)' ; exit $${PIPESTATUS[0]}
 
 app: generate
-	$(XCB) -configuration Release build
+	$(XCB) -configuration Release CLANG_ENABLE_CODE_COVERAGE=NO CLANG_COVERAGE_MAPPING=NO build
 	rm -rf build/ClipFlow.app && cp -R $(DERIVED)/Build/Products/Release/ClipFlow.app build/ClipFlow.app
 	@echo "Built build/ClipFlow.app"
 
