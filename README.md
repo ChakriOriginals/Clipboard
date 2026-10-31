@@ -12,7 +12,6 @@ any item back into the app you were using. It works like Windows' Win + V, built
     <img src="docs/media/clipboard-demo.gif" width="720" alt="Clipboard in 21 seconds: press ⇧⌘V, search your history, catch a file name with a hidden character, reveal a masked password">
   </a>
   <br>
-  <sub><a href="https://github.com/ChakriOriginals/Clipboard/raw/main/docs/media/clipboard-demo.mp4">Download the 21-second video with sound (MP4, 4 MB)</a></sub>
 </p>
 
 ## What it does
@@ -33,10 +32,6 @@ where you were working.
 
 <p align="center">
   <img src="docs/images/panel-light.png" width="720" alt="The Clipboard panel: search field, filters, the history list on the left and a preview of the selected item on the right">
-</p>
-<p align="center">
-  <img src="docs/images/panel-dark.png" width="360" alt="The panel in dark mode">
-  <img src="docs/images/panel-sensitive.png" width="360" alt="A sensitive item is hidden until you click Reveal">
 </p>
 
 ## Install
