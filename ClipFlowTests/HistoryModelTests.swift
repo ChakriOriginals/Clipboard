@@ -153,6 +153,17 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(model.items.count, 2)
     }
 
+    func testRestoreReportsChangeCountBeforeAnyAwait() async {
+        let model = await makeModel()
+        await ingest(model, "x")
+        var reported: Int?
+        let returned = await model.restore(id: model.results[0].id, to: pb, onWrite: { count in
+            reported = count
+            XCTAssertEqual(self.pb.changeCount, count)
+        })
+        XCTAssertEqual(reported, returned)
+    }
+
     func testRetentionRemovesOldUnpinned() async {
         let model = await makeModel()
         await ingest(model, "ancient", "pinned")

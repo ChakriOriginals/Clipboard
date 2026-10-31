@@ -100,10 +100,13 @@ final class HistoryModel {
     // MARK: Actions
 
     /// Restores an entry to the pasteboard and moves it to the top. Returns the pasteboard change count.
-    func restore(id: UUID, to pasteboard: NSPasteboard) async -> Int? {
+    /// `onWrite` runs synchronously right after the write, before any suspension, so the monitor can
+    /// ignore ClipFlow's own change before its next poll.
+    func restore(id: UUID, to pasteboard: NSPasteboard, onWrite: (Int) -> Void = { _ in }) async -> Int? {
         do {
             let content = try await store.content(id: id)
             let changeCount = PasteboardWriter.write(content, to: pasteboard)
+            onWrite(changeCount)
             let time = now()
             try await store.bump(id: id, now: time)
             if var item = items.first(where: { $0.id == id }) {
