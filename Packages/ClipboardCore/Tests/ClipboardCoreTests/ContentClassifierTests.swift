@@ -142,4 +142,11 @@ final class ContentClassifierTests: XCTestCase {
         XCTAssertEqual(ContentClassifier.preview("ls\nrm -rf ~"), "ls ⏎ rm -rf ~")
         XCTAssertEqual(ContentClassifier.preview("safe\u{202E}txt.exe\u{200B}"), "safetxt.exe")
     }
+
+    func testCommentsEndAtTheirRealEndNotTheFirstAngleBracket() {
+        // An HTML renderer shows "dummy hidden": the comment ends at "-->", so "<script>" inside it is just text.
+        let text = ContentClassifier.stripTags("<p>Hello</p><!-- x > <script> -->dummy hidden")
+        XCTAssertTrue(text.contains("dummy hidden"), text)
+        XCTAssertFalse(text.contains("script"))
+    }
 }

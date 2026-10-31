@@ -121,20 +121,38 @@ public enum ContentClassifier {
         return score >= 3
     }
 
-    /// Removes tags and the contents of <script>/<style> in one linear pass (no regex backtracking
-    /// on attacker-controlled HTML). A "<" that does not start a tag is kept as text.
+    /// One-line row preview of HTML.
     static func stripTags(_ html: String) -> String {
+        preview(htmlText(html), limit: Int.max)
+    }
+
+    /// The text of HTML: tags, comments and the contents of <script>/<style> removed in one linear pass
+    /// (no regex backtracking on attacker-controlled HTML), every other character kept as is. A "<" that
+    /// does not start a tag is kept as text.
+    public static func htmlText(_ html: String) -> String {
         let chars = Array(html.prefix(2_000_000).unicodeScalars)
-        // nextClose[i] = index of the first ">" at or after i (one backward pass keeps this linear).
+        // nextClose[i] = index of the first ">" at or after i; commentEnd[i] = index just past the first
+        // "-->" at or after i. One backward pass each keeps this linear.
         var nextClose = [Int](repeating: -1, count: chars.count + 1)
+        var commentEnd = [Int](repeating: -1, count: chars.count + 1)
         for j in stride(from: chars.count - 1, through: 0, by: -1) {
             nextClose[j] = chars[j] == ">" ? j : nextClose[j + 1]
+            let opensEnd = j + 2 < chars.count && chars[j] == "-" && chars[j + 1] == "-" && chars[j + 2] == ">"
+            commentEnd[j] = opensEnd ? j + 3 : commentEnd[j + 1]
         }
         var out = String.UnicodeScalarView()
         var i = 0
         var skipUntil: String?          // closing tag name while inside script/style
         while i < chars.count {
             let c = chars[i]
+            // A comment ends only at "-->", never at a ">" inside it; an unclosed one hides the rest.
+            if skipUntil == nil, c == "<", i + 3 < chars.count, chars[i + 1] == "!", chars[i + 2] == "-", chars[i + 3] == "-" {
+                let end = commentEnd[i + 4] // in bounds: i + 3 < count and the table has count + 1 entries
+                if end < 0 { break }
+                out.append(" ")
+                i = end
+                continue
+            }
             guard c == "<", i + 1 < chars.count,
                   chars[i + 1] == "/" || chars[i + 1] == "!" || chars[i + 1].properties.isAlphabetic,
                   case let close = nextClose[i + 1], close >= 0
@@ -157,6 +175,6 @@ public enum ContentClassifier {
         for (entity, char) in [("&nbsp;", " "), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'"), ("&amp;", "&")] {
             text = text.replacingOccurrences(of: entity, with: char)
         }
-        return preview(text, limit: Int.max)
+        return text
     }
 }

@@ -36,7 +36,8 @@ public struct ContentPreview: Equatable, Sendable {
 
         var raw = string(PasteboardType.plainText) ?? string(PasteboardType.url)
         if raw == nil, fileNames.isEmpty, let html = string(PasteboardType.html) {
-            raw = ContentClassifier.stripTags(html)
+            // Tags become spaces: collapse those runs, but keep line breaks and every other character.
+            raw = ContentClassifier.htmlText(html).split(whereSeparator: { $0 == " " || $0 == "\t" }).joined(separator: " ")
         }
 
         var text: String?

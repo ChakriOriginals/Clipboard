@@ -61,6 +61,12 @@ final class ContentPreviewTests: XCTestCase {
         XCTAssertTrue(p.hasInvisibleCharacters)
     }
 
+    func testHTMLOnlyTextKeepsInvisibleCharactersVisible() {
+        let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.html, "<p>safe\u{202E}txt.exe\u{200B}</p>")]]))
+        XCTAssertEqual(p.text?.trimmingCharacters(in: .whitespaces), "safe⟨U+202E⟩txt.exe⟨U+200B⟩")
+        XCTAssertTrue(p.hasInvisibleCharacters)
+    }
+
     func testTabsAndLineBreaksStayReal() {
         let p = ContentPreview.make(from: ClipContent(items: [[rep(PasteboardType.plainText, "a\tb\r\nc\nd")]]))
         XCTAssertEqual(p.text, "a\tb\r\nc\nd")
