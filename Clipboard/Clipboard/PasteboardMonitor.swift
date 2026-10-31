@@ -69,6 +69,7 @@ final class PasteboardMonitor {
             onSkip(reason)
             return
         }
-        onSnapshot(PasteboardReader.snapshot(pasteboard, frontmost: app))
+        guard let snapshot = PasteboardReader.snapshot(pasteboard, frontmost: app) else { return onSkip(.tooLarge) }
+        onSnapshot(snapshot)
     }
 }

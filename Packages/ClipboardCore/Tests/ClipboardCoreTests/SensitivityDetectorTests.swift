@@ -56,4 +56,16 @@ final class SensitivityDetectorTests: XCTestCase {
         XCTAssertFalse(SensitivityDetector.isSensitive(big))
         XCTAssertLessThan(Date().timeIntervalSince(start), 1.0)
     }
+
+    func testJWTPatternStaysLinearOnAdversarialText() {
+        // "-" both starts a new \b position and belongs to the token class: catastrophic for a greedy match.
+        let text = String(repeating: "-eyJ", count: 25_000)
+        let start = Date()
+        XCTAssertFalse(SensitivityDetector.isSensitive(text))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 0.5)
+    }
+
+    func testRealJWTStillDetected() {
+        XCTAssertTrue(SensitivityDetector.isSensitive("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"))
+    }
 }

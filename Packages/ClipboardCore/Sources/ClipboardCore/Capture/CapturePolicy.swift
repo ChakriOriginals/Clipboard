@@ -21,7 +21,7 @@ public enum CapturePolicy {
     public static let maxTotalBytes = 100_000_000
     public static let sensitivePreview = "Sensitive item — hidden"
 
-    private static let textTypes: Set<String> = [PasteboardType.plainText, PasteboardType.rtf, PasteboardType.html, PasteboardType.url]
+    public static let textTypes: Set<String> = [PasteboardType.plainText, PasteboardType.rtf, PasteboardType.html, PasteboardType.url]
 
     /// Checks that need only type names and the frontmost app, so the monitor can skip a change
     /// without ever reading its content (paused, password-manager markers, excluded app, nothing supported).
@@ -56,7 +56,16 @@ public enum CapturePolicy {
         if textBytes > maxTextBytes { return .skip(.tooLarge) }
         if items.joined().filter({ $0.type == PasteboardType.fileURL }).count > maxFileURLs { return .skip(.tooLarge) }
 
-        // Normalize images to PNG; TIFF is never stored.
+        // Normalize images to PNG; TIFF is never stored. Decoding is the expensive step, so all the TIFFs
+        // in one change share a single pixel budget, checked from headers before anything is decoded.
+        var tiffPixels = 0
+        for item in items where !item.contains(where: { $0.type == PasteboardType.png }) {
+            guard let tiff = item.first(where: { $0.type == PasteboardType.tiff })?.data,
+                  let size = Thumbnailer.pixelSize(tiff) else { continue }
+            guard pixelsWithinLimit(width: size.width, height: size.height) else { return .skip(.tooLarge) }
+            tiffPixels += size.width * size.height
+            if tiffPixels > maxImagePixels { return .skip(.tooLarge) }
+        }
         var imageSize: (width: Int, height: Int)?
         for index in items.indices {
             let png = items[index].first { $0.type == PasteboardType.png }?.data
@@ -74,6 +83,9 @@ public enum CapturePolicy {
             if index == 0 { imageSize = size }
         }
         items.removeAll { $0.isEmpty }
+        // PNG re-encoding can be far larger than a lossy TIFF source: check the total again.
+        let byteSize = items.joined().reduce(0) { $0 + $1.data.count }
+        if byteSize > maxTotalBytes { return .skip(.tooLarge) }
 
         guard let classification = ContentClassifier.classify(items) else { return .skip(.empty) }
         switch classification.kind {
@@ -92,8 +104,7 @@ public enum CapturePolicy {
 
         // Scan every stored text flavor of every item, not just the canonical one: a secret can ride
         // along beside an image, in HTML, or in a later item.
-        let textFlavors: Set<String> = [PasteboardType.plainText, PasteboardType.html, PasteboardType.rtf, PasteboardType.url]
-        let storedTexts = items.joined().filter { textFlavors.contains($0.type) }.map { String(decoding: $0.data, as: UTF8.self) }
+        let storedTexts = items.joined().filter { textTypes.contains($0.type) }.map { String(decoding: $0.data, as: UTF8.self) }
         var sensitive = false
         if storedTexts.contains(where: SensitivityDetector.isSensitive) {
             if settings.sensitiveHandling == .dontSave { return .skip(.sensitive) }
@@ -105,6 +116,6 @@ public enum CapturePolicy {
             sourceAppBundleID: snapshot.frontmostBundleID, sourceAppName: snapshot.frontmostAppName,
             fileNames: classification.fileNames, isSensitive: sensitive,
             content: ClipContent(items: items), canonical: classification.canonical, thumbnailPNG: thumbnail,
-            byteSize: items.joined().reduce(0) { $0 + $1.data.count }))
+            byteSize: byteSize))
     }
 }

@@ -8,17 +8,31 @@ enum PasteboardReader {
         Set((pasteboard.pasteboardItems ?? []).flatMap { $0.types.map(\.rawValue) })
     }
 
-    static func snapshot(_ pasteboard: NSPasteboard, frontmost: (bundleID: String?, name: String?)?) -> PasteboardSnapshot {
+    /// Returns nil when the change is over a per-change cap. The caps are the ones `CapturePolicy.decide`
+    /// enforces, checked here while reading so an oversized change is never fully read or parsed on the
+    /// main thread.
+    static func snapshot(_ pasteboard: NSPasteboard, frontmost: (bundleID: String?, name: String?)?) -> PasteboardSnapshot? {
+        let pasteboardItems = pasteboard.pasteboardItems ?? []
+        guard pasteboardItems.count <= CapturePolicy.maxItems else { return nil }
         var types = Set<String>()
         var items: [[Representation]] = []
-        for item in pasteboard.pasteboardItems ?? [] {
+        var totalBytes = 0
+        var textBytes = 0
+        for item in pasteboardItems {
             var reps: [Representation] = []
             for type in item.types {
                 types.insert(type.rawValue)
                 guard PasteboardType.allowlist.contains(type.rawValue), let data = item.data(forType: type) else { continue }
+                totalBytes += data.count
+                if CapturePolicy.textTypes.contains(type.rawValue) { textBytes += data.count }
+                guard totalBytes <= CapturePolicy.maxTotalBytes, textBytes <= CapturePolicy.maxTextBytes else { return nil }
                 reps.append(Representation(type: type.rawValue, data: data))
             }
-            if let derived = derivedPlainText(reps) { reps.append(derived) }
+            if let derived = derivedPlainText(reps) {
+                textBytes += derived.data.count
+                guard textBytes <= CapturePolicy.maxTextBytes else { return nil }
+                reps.append(derived)
+            }
             items.append(reps)
         }
         return PasteboardSnapshot(items: items, types: types, frontmostBundleID: frontmost?.bundleID,

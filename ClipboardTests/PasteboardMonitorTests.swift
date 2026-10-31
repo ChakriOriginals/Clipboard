@@ -40,6 +40,33 @@ final class PasteboardMonitorTests: XCTestCase {
         snapshot?.items.first?.first { $0.type == PasteboardType.plainText }.flatMap { String(data: $0.data, encoding: .utf8) }
     }
 
+    func testTooManyItemsAreSkippedBeforeReadingThem() {
+        pb.clearContents()
+        let items = (0...CapturePolicy.maxItems).map { i -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            item.setString("item \(i)", forType: .string)
+            return item
+        }
+        pb.writeObjects(items)
+        monitor.pollNow()
+        XCTAssertTrue(snapshots.isEmpty)
+        XCTAssertEqual(skips, [.tooLarge])
+    }
+
+    func testRichTextBeyondTheTextLimitIsSkippedBeforeParsing() throws {
+        let text = NSAttributedString(string: String(repeating: "a", count: 900_000))
+        let rtf = try XCTUnwrap(text.rtf(from: NSRange(location: 0, length: text.length), documentAttributes: [:]))
+        pb.clearContents()
+        pb.writeObjects((0..<3).map { _ -> NSPasteboardItem in
+            let item = NSPasteboardItem()
+            item.setData(rtf, forType: .rtf)
+            return item
+        })
+        monitor.pollNow()
+        XCTAssertTrue(snapshots.isEmpty)
+        XCTAssertEqual(skips, [.tooLarge])
+    }
+
     func testExistingContentAtStartIsNotCaptured() {
         monitor.pollNow()
         XCTAssertTrue(snapshots.isEmpty)

@@ -353,6 +353,17 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(previews(model), ["one", "new copy", "three", "two"])
     }
 
+    func testCopyStillBeingCapturedWhenHistoryIsClearedIsDropped() async throws {
+        let model = await makeModel()
+        model.enqueue(text("copied just before Clear Everything"), capturedAt: clock)
+        await model.clearEverything()
+        await model.waitForPendingCaptures()
+        XCTAssertTrue(model.items.isEmpty)
+
+        let reopened = await makeModel()
+        XCTAssertTrue(reopened.items.isEmpty, "nothing from before the clear reaches the fresh store")
+    }
+
     func testPreviewOfExpiredItemIsUnavailable() async {
         settings.sensitiveExpiryMinutes = 10
         let model = await makeModel()

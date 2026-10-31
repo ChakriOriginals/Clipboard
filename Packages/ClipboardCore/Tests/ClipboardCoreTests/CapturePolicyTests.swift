@@ -1,3 +1,4 @@
+import ImageIO
 import XCTest
 @testable import ClipboardCore
 
@@ -181,6 +182,23 @@ final class CapturePolicyLimitTests: XCTestCase {
 
     func testTooManyItemsSkipped() {
         let items = (0...CapturePolicy.maxItems).map { [Representation(type: PasteboardType.plainText, data: Data("\($0)".utf8))] }
+        guard case .skip(.tooLarge) = CapturePolicy.decide(snapshot(items), settings: settings) else { return XCTFail("expected tooLarge") }
+    }
+
+    func testDecodeWorkAcrossImagesIsBudgeted() {
+        // Each LZW TIFF is small on the pasteboard but declares 16 MP; seven of them exceed one change's budget.
+        let lzw: [CFString: Any] = [kCGImagePropertyTIFFDictionary: [kCGImagePropertyTIFFCompression: 5]]
+        let tiff = makeImage(width: 4_000, height: 4_000, type: .tiff, properties: lzw)
+        XCTAssertLessThan(tiff.count * 7, CapturePolicy.maxTotalBytes)
+        let items = (0..<7).map { _ in [Representation(type: PasteboardType.tiff, data: tiff)] }
+        guard case .skip(.tooLarge) = CapturePolicy.decide(snapshot(items), settings: settings) else { return XCTFail("expected tooLarge") }
+    }
+
+    func testTotalSizeIsCheckedAgainAfterConvertingToPNG() {
+        let tiff = makeNoiseJPEGTIFF(width: 1_400, height: 1_400)
+        let count = 26 // about 51 MP: inside the decode budget
+        XCTAssertLessThan(tiff.count * count, CapturePolicy.maxTotalBytes / 3, "small on the pasteboard")
+        let items = (0..<count).map { _ in [Representation(type: PasteboardType.tiff, data: tiff)] }
         guard case .skip(.tooLarge) = CapturePolicy.decide(snapshot(items), settings: settings) else { return XCTFail("expected tooLarge") }
     }
 

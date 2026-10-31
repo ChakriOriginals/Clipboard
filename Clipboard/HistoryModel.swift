@@ -35,6 +35,8 @@ final class HistoryModel {
     /// never insert or move them, so ⌘1–9 and hover keep pointing at what the user saw.
     @ObservationIgnored private var frozenOrder: [UUID]?
     @ObservationIgnored private var pendingCapture: (snapshot: PasteboardSnapshot, capturedAt: Date)?
+    /// Bumped by every clear: a capture that began before it is dropped instead of refilling history.
+    @ObservationIgnored private var generation = 0
     @ObservationIgnored private var captureWorker: Task<Void, Never>?
     @ObservationIgnored private let thumbnails: NSCache<NSUUID, NSImage> = {
         let cache = NSCache<NSUUID, NSImage>()
@@ -115,14 +117,16 @@ final class HistoryModel {
     /// reorder history.
     func ingest(_ snapshot: PasteboardSnapshot, capturedAt: Date? = nil) async {
         guard canCapture else { return }
+        let started = generation
         let observedAt = capturedAt ?? now()
         let settings = self.settings.captureSettings
         let decision = await Task.detached(priority: .userInitiated) {
             CapturePolicy.decide(snapshot, settings: settings)
         }.value
-        guard case .capture(let draft) = decision else { return }
+        guard case .capture(let draft) = decision, generation == started else { return }
         do {
             let item = try await store.insertOrBump(draft, now: observedAt)
+            guard generation == started else { return } // a clear queued behind this insert removes the row
             upsert(item)
             await applyRetention()
         } catch {
@@ -188,6 +192,7 @@ final class HistoryModel {
     }
 
     func clearUnpinned() async {
+        forgetCapturesInFlight()
         do {
             try await store.clearUnpinned()
             remove(items.filter { !$0.isPinned }.map(\.id))
@@ -197,6 +202,7 @@ final class HistoryModel {
     }
 
     func clearEverything() async {
+        forgetCapturesInFlight()
         do {
             try await store.destroyEverything()
             thumbnails.removeAllObjects()
@@ -209,6 +215,11 @@ final class HistoryModel {
             setItems([])
             status = .failed
         }
+    }
+
+    private func forgetCapturesInFlight() {
+        generation += 1
+        pendingCapture = nil
     }
 
     func applyRetention() async {

@@ -13,7 +13,9 @@ public enum SensitivityDetector {
         #"\b[sr]k_live_[A-Za-z0-9]{16,}\b"#,
         #"\bsk-[A-Za-z0-9_\-]{20,}"#,
         #"\bAIza[0-9A-Za-z_\-]{35}\b"#,
-        #"\beyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"#,
+        // Starts only where the previous character can't be part of a token, and never backtracks inside
+        // a segment: with `\b`, "-eyJ-eyJ…" made every position a start and the scan quadratic.
+        #"(?<![A-Za-z0-9_\-])eyJ[A-Za-z0-9_\-]{8,}+\.eyJ[A-Za-z0-9_\-]{8,}+\.[A-Za-z0-9_\-]{8,}"#,
         #"(?i)(?<![a-z])(password|passwd|pwd|secret|token|api[_-]?key)\b"?\s*[:=]\s*\S+"#,
     ].map { try! NSRegularExpression(pattern: $0) }
 
