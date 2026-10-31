@@ -9,3 +9,4 @@ Packages/ClipFlowCore/.build/
 Packages/ClipFlowCore/.swiftpm/
 Config/Local.xcconfig
 *.xcresult
+.build/
