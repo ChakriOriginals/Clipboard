@@ -61,8 +61,8 @@ jobs:
         with:
           name: release
           path: |
-            build/ClipFlow-*.zip
-            build/ClipFlow-*.zip.sha256
+            build/Clipboard-*.zip
+            build/Clipboard-*.zip.sha256
           if-no-files-found: error
 
   publish:
@@ -78,6 +78,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" ClipFlow-*.zip ClipFlow-*.zip.sha256 \
-            --repo "$GITHUB_REPOSITORY" --title "ClipFlow $GITHUB_REF_NAME" --draft \
-            --notes "See CHANGELOG.md. Verify the download with the .sha256 file; check the signature with: codesign -dv --verbose=4 ClipFlow.app"
+          gh release create "$GITHUB_REF_NAME" Clipboard-*.zip Clipboard-*.zip.sha256 \
+            --repo "$GITHUB_REPOSITORY" --title "Clipboard $GITHUB_REF_NAME" --draft \
+            --notes "See CHANGELOG.md. Verify the download with the .sha256 file; check the signature with: codesign -dv --verbose=4 Clipboard.app"

@@ -1,4 +1,4 @@
-# ClipFlow
+# Clipboard
 
 Clipboard history for macOS: press **⇧⌘V**, find anything you copied, and paste it where you were working.
 Like Windows' Win + V, built natively for the Mac.
@@ -21,24 +21,24 @@ Like Windows' Win + V, built natively for the Mac.
 
 ### From a release
 
-1. Download `ClipFlow-<version>.zip` from GitHub Releases and check it against the `.sha256` file:
-   `shasum -a 256 ClipFlow-<version>.zip`
-2. Unzip and move **ClipFlow.app** to `/Applications`.
+1. Download `Clipboard-<version>.zip` from GitHub Releases and check it against the `.sha256` file:
+   `shasum -a 256 Clipboard-<version>.zip`
+2. Unzip and move **Clipboard.app** to `/Applications`.
 3. Release builds are ad-hoc signed unless the release notes say they are notarized. macOS will refuse to
    open an un-notarized app the first time: open **System Settings › Privacy & Security** and click
-   **Open Anyway** next to the ClipFlow message (or run `xattr -dr com.apple.quarantine /Applications/ClipFlow.app`).
+   **Open Anyway** next to the Clipboard message (or run `xattr -dr com.apple.quarantine /Applications/Clipboard.app`).
 
 ### Build from source
 
 ```bash
-git clone <this repository> ClipFlow && cd ClipFlow
+git clone <this repository> Clipboard && cd Clipboard
 brew install xcodegen
-make app          # builds build/ClipFlow.app (Release)
+make app          # builds build/Clipboard.app (Release)
 make run          # builds and opens it
 ```
 
 `make test` runs the core tests, the app tests and the privacy checks. `make generate` creates
-`ClipFlow.xcodeproj` if you prefer to work in Xcode (the project file is generated, not committed).
+`Clipboard.xcodeproj` if you prefer to work in Xcode (the project file is generated, not committed).
 
 Builds are ad-hoc signed, so no Apple Developer account is needed. Each rebuild changes the signature, which
 means macOS forgets the Accessibility permission and the Keychain may ask again. To avoid that, create an
@@ -53,10 +53,10 @@ CODE_SIGN_IDENTITY = Apple Development
 
 | Permission | Why | Without it |
 |---|---|---|
-| **Paste** (System Settings › Privacy & Security › Paste) — choose **Always Allow** | macOS 15.4+ asks before an app reads the clipboard. ClipFlow reads it each time you copy. | ClipFlow can’t record history. If macOS is set to ask every time, ClipFlow stops reading rather than prompting on each copy. |
+| **Paste** (System Settings › Privacy & Security › Paste) — choose **Always Allow** | macOS 15.4+ asks before an app reads the clipboard. Clipboard reads it each time you copy. | Clipboard can’t record history. If macOS is set to ask every time, Clipboard stops reading rather than prompting on each copy. |
 | **Accessibility** (optional) | Sends ⌘V to the app you were using, so choosing an item pastes it. | Choosing an item copies it; you press ⌘V yourself. |
 
-ClipFlow never asks for Full Disk Access, Screen Recording, Input Monitoring, or network access.
+Clipboard never asks for Full Disk Access, Screen Recording, Input Monitoring, or network access.
 
 ## Keyboard shortcuts
 
@@ -72,26 +72,27 @@ ClipFlow never asks for Full Disk Access, Screen Recording, Input Monitoring, or
 | Panel | ⌘⌫ | Delete |
 | Panel | esc | Close |
 
-⇧⌘V is “paste as plain text” in some apps (Chrome, Slack, VS Code). While ClipFlow runs, the shortcut opens
-ClipFlow instead; pick another in **Settings › Shortcuts** if you rely on it. Shortcuts must include ⌘ or ⌃.
+⇧⌘V is “paste as plain text” in some apps (Chrome, Slack, VS Code). While Clipboard runs, the shortcut opens
+Clipboard instead; pick another in **Settings › Shortcuts** if you rely on it. Shortcuts must include ⌘ or ⌃.
 
 ## Privacy model
 
-- History lives in `~/Library/Application Support/ClipFlow/history.sqlite` (folder readable only by you,
+- History lives in `~/Library/Application Support/Clipboard/history.sqlite` (moved there automatically from the
+  pre-rename `ClipFlow` folder) (folder readable only by you,
   excluded from Time Machine).
 - Every entry’s content, preview, thumbnail and source app are encrypted with AES-256-GCM. The key is a random
   256-bit key in your login Keychain. Timestamps, kind (text/link/image…), size and pin status are stored
   unencrypted so history can be sorted and cleaned up without decrypting it.
 - **Clear Everything** deletes the database *and* the key. Deleted data can’t be recovered — by you either.
 - There is no recovery if the Keychain item is lost. That is deliberate.
-- ClipFlow does not protect against malware already running as your user: such software can read the live
+- Clipboard does not protect against malware already running as your user: such software can read the live
   clipboard and your unlocked Keychain directly.
 
 Details: [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) and [PRIVACY.md](PRIVACY.md).
 
 ## Known limitations
 
-- Only copies made while ClipFlow is running are recorded.
+- Only copies made while Clipboard is running are recorded.
 - “Ignore copies made in these apps” uses the app in front at the time of the copy. macOS doesn’t say which app
   wrote to the clipboard, so this is best-effort.
 - Secret detection is a heuristic. It will miss some secrets and flag some harmless text.

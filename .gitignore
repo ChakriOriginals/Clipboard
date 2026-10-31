@@ -5,8 +5,8 @@ DerivedData/
 *.xcodeproj/
 *.xcworkspace/
 !Packages/**/*.xcworkspace/
-Packages/ClipFlowCore/.build/
-Packages/ClipFlowCore/.swiftpm/
+Packages/ClipboardCore/.build/
+Packages/ClipboardCore/.swiftpm/
 Config/Local.xcconfig
 *.xcresult
 .build/

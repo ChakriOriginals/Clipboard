@@ -16,7 +16,7 @@ For security problems, use Security › Report a vulnerability instead.
 2.
 
 **Environment**
-- ClipFlow version (Settings › About):
+- Clipboard version (Settings › About):
 - macOS version:
 - Mac (Apple silicon / Intel):
 - Paste access setting and Accessibility on/off:

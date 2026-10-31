@@ -1,4 +1,4 @@
-# ClipFlow — Security Model
+# Clipboard — Security Model
 
 Status: Draft for approval · Date: 2026-10-30
 
@@ -24,7 +24,7 @@ with a nicer UI.
 ## 3. Cryptography
 
 - **Master key:** 256-bit random (`SymmetricKey(size: .bits256)`), created at first launch.
-- **Subkeys (HKDF-SHA256, salt = "ClipFlow.v1"):** `encKey` (info "enc"), `hashKey` (info "hash").
+- **Subkeys (HKDF-SHA256, salt = "Clipboard.v1"):** `encKey` (info "enc"), `hashKey` (info "hash").
 - **Encryption:** `AES.GCM.seal(plaintext, using: encKey, authenticating: aad)`; random 96-bit nonce per seal
   (CryptoKit default); stored as the combined representation (nonce ‖ ciphertext ‖ tag).
 - **AAD:** `"summary:" + id` or `"content:" + id`, so ciphertexts cannot be swapped between rows or
@@ -32,7 +32,7 @@ with a nicer UI.
 - **Content hash for dedup:** `HMAC-SHA256(hashKey, kind ‖ 0x00 ‖ canonical bytes)`, where canonical bytes are
   the plain text (UTF-8) for text kinds, PNG bytes for images, and the newline-joined file URLs for files.
   Keyed so the plaintext hash column cannot be used to confirm guesses of short secrets.
-- **Canary:** `meta.canary` = seal("ClipFlow canary v1", aad "canary"). Open fails → wrong/missing key.
+- **Canary:** `meta.canary` = seal("Clipboard canary v1", aad "canary"). Open fails → wrong/missing key.
 - **Nonce budget:** random nonces are safe far beyond 2³² seals per key; history never approaches this.
 
 Plaintext columns (by design, to allow sorting, retention and dedup without decryption): id, kind,
@@ -104,7 +104,7 @@ moment they expire; the deletion sweep runs every minute. Restored sensitive ite
 - HTML preview stripping is a single linear pass (no backtracking regex on untrusted input).
 - Capture is serialized: one snapshot is processed at a time and a flood of changes coalesces to the latest,
   so a writer cannot pile up decode work. History order uses the time the change was observed.
-- Auto-paste posts ⌘V only if the pasteboard still holds ClipFlow's own write and the app that was frontmost
+- Auto-paste posts ⌘V only if the pasteboard still holds Clipboard's own write and the app that was frontmost
   when the panel opened is still frontmost; a second ↩ during a restore is ignored.
 - Code: displayed as text in a monospaced font. Never executed or syntax-highlighted via external tools.
 
@@ -113,7 +113,7 @@ moment they expire; the deletion sweep runs every minute. Restored sensitive ite
 - Not sandboxed (auto-paste); Hardened Runtime enabled. Release builds carry no `get-task-allow` entitlement
   and no coverage instrumentation; `scripts/package-release.sh` refuses to package either.
 - One instance at a time; SQLite uses a busy timeout. The live database is moved aside only when it is not
-  ClipFlow history for this key (canary mismatch, foreign rows, not-a-database, corrupt) — never for busy or I/O
+  Clipboard history for this key (canary mismatch, foreign rows, not-a-database, corrupt) — never for busy or I/O
   errors. A database written by a newer schema is refused and left untouched. Rows that fail AES-GCM
   authentication are purged; authentic rows the app does not understand are kept.
 - Clear Everything also deletes `history.unreadable-*.sqlite` copies left by earlier recoveries, and on any

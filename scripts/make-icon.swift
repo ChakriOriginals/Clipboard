@@ -1,8 +1,8 @@
-// Generates ClipFlow/Resources/Assets.xcassets/AppIcon.appiconset from code (no binary design files).
+// Generates Clipboard/Resources/Assets.xcassets/AppIcon.appiconset from code (no binary design files).
 // Usage: swift scripts/make-icon.swift
 import AppKit
 
-let out = URL(fileURLWithPath: "ClipFlow/Resources/Assets.xcassets/AppIcon.appiconset", isDirectory: true)
+let out = URL(fileURLWithPath: "Clipboard/Resources/Assets.xcassets/AppIcon.appiconset", isDirectory: true)
 try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
 
 func render(_ pixels: Int) -> Data {

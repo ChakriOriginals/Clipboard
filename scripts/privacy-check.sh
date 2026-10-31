@@ -5,7 +5,7 @@
 #   3. No os.Logger call that interpolates content-like values.
 set -uo pipefail
 root="${1:-$(cd "$(dirname "$0")/.." && pwd)}"
-sources=("$root/ClipFlow" "$root/Packages/ClipFlowCore/Sources")
+sources=("$root/Clipboard" "$root/Packages/ClipboardCore/Sources")
 status=0
 
 check() {

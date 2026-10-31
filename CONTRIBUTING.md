@@ -1,6 +1,6 @@
-# Contributing to ClipFlow
+# Contributing to Clipboard
 
-Thanks for helping. ClipFlow is small on purpose; the bar for new features is “would most users notice if
+Thanks for helping. Clipboard is small on purpose; the bar for new features is “would most users notice if
 this were missing?”
 
 ## Setup
@@ -8,7 +8,7 @@ this were missing?”
 ```bash
 brew install xcodegen
 make test        # core tests, app tests, privacy checks
-make generate    # creates ClipFlow.xcodeproj for Xcode
+make generate    # creates Clipboard.xcodeproj for Xcode
 ```
 
 The app tests run inside the app as a test host. They use private, uniquely named pasteboards, temporary
@@ -19,9 +19,9 @@ rebuilds — see the README.
 
 ## Layout
 
-- `Packages/ClipFlowCore` — everything that doesn’t need AppKit: model, capture rules, classification,
+- `Packages/ClipboardCore` — everything that doesn’t need AppKit: model, capture rules, classification,
   sensitivity checks, encryption, SQLite storage, search, retention. Fast `swift test`.
-- `ClipFlow/` — the macOS app: pasteboard monitor and writer, hotkey, panel, settings, menu bar.
+- `Clipboard/` — the macOS app: pasteboard monitor and writer, hotkey, panel, settings, menu bar.
 - `docs/` — product spec, architecture, security model, test plan.
 
 ## Rules
@@ -30,7 +30,7 @@ rebuilds — see the README.
   the bug.
 - **No clipboard content in logs.** Use `os.Logger` with counts, kinds and error types only. `scripts/privacy-check.sh`
   enforces the basics in CI; reviewers check the rest.
-- **No networking.** ClipFlow has no network code. A change that adds any needs a design discussion first.
+- **No networking.** Clipboard has no network code. A change that adds any needs a design discussion first.
 - **No new dependencies** without a strong reason.
 - **No warnings.** The project treats Swift warnings as errors.
 - Keep changes focused; update docs and `CHANGELOG.md` when behavior changes.

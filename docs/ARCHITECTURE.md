@@ -1,4 +1,4 @@
-# ClipFlow — Architecture
+# Clipboard — Architecture
 
 Status: Draft for approval · Date: 2026-10-30
 
@@ -7,7 +7,7 @@ Status: Draft for approval · Date: 2026-10-30
 **Project structure**
 | Option | Trade-off | Verdict |
 |---|---|---|
-| A. XcodeGen `project.yml` + local SwiftPM package `ClipFlowCore` | Real `.app` bundle runs from Xcode (Keychain/TCC need a bundle ID); core logic tested with fast `swift test`; contributors need `brew install xcodegen`. | **Chosen** |
+| A. XcodeGen `project.yml` + local SwiftPM package `ClipboardCore` | Real `.app` bundle runs from Xcode (Keychain/TCC need a bundle ID); core logic tested with fast `swift test`; contributors need `brew install xcodegen`. | **Chosen** |
 | B. Pure SwiftPM + bundling script | No extra tool, but running from Xcode launches a bare binary with no bundle identity — breaks permission and Keychain testing. | Rejected |
 | C. Committed `.xcodeproj` | `project.pbxproj` merge conflicts in an open-source repo. | Rejected |
 
@@ -21,28 +21,28 @@ Status: Draft for approval · Date: 2026-10-30
 ## 2. Repository layout
 
 ```
-ClipFlow/
+Clipboard/
 ├── project.yml                  # XcodeGen spec (app + app tests); .xcodeproj is generated, gitignored
 ├── Makefile                     # generate, build, test, app, release
-├── Packages/ClipFlowCore/       # AppKit-free logic, reusable by a future iOS app
+├── Packages/ClipboardCore/       # AppKit-free logic, reusable by a future iOS app
 │   ├── Package.swift
-│   ├── Sources/ClipFlowCore/
+│   ├── Sources/ClipboardCore/
 │   │   ├── Model/               # ClipKind, ClipItem, ClipSummary, ClipContent, Representation
 │   │   ├── Capture/             # PasteboardSnapshot, CapturePolicy, ContentClassifier, SensitivityDetector, Thumbnailer
 │   │   ├── Storage/             # SQLiteDatabase (thin C-API wrapper), ClipStore (actor), Schema
 │   │   ├── Crypto/              # CryptoBox (AES-GCM + HKDF), KeyStore protocol, KeychainKeyStore
 │   │   ├── Search/              # SearchQuery, SearchIndex
 │   │   └── Retention/           # RetentionPolicy
-│   └── Tests/ClipFlowCoreTests/
-├── ClipFlow/                    # macOS app target (AppKit + SwiftUI)
-│   ├── App/                     # ClipFlowApp, AppDelegate, MenuBarController, Onboarding
+│   └── Tests/ClipboardCoreTests/
+├── Clipboard/                    # macOS app target (AppKit + SwiftUI)
+│   ├── App/                     # ClipboardApp, AppDelegate, MenuBarController, Onboarding
 │   ├── Clipboard/               # PasteboardMonitor, PasteboardWriter, AutoPaster
 │   ├── Panel/                   # ClipboardPanel (NSPanel), PanelController, PanelView, RowView, KeyRouter
 │   ├── Shortcuts/               # HotKey (Carbon), ShortcutRecorder
 │   ├── Settings/                # SettingsStore, SettingsView + tabs
 │   ├── HistoryModel.swift       # @MainActor @Observable façade used by UI
-│   └── Resources/               # Assets.xcassets, Info.plist, ClipFlow.entitlements
-├── ClipFlowTests/               # app-level integration tests (named pasteboards, hotkey registration)
+│   └── Resources/               # Assets.xcassets, Info.plist, Clipboard.entitlements
+├── ClipboardTests/               # app-level integration tests (named pasteboards, hotkey registration)
 ├── docs/
 └── .github/
 ```
@@ -88,7 +88,7 @@ Supported representations (allowlist; everything else is dropped):
 
 ## 4. Components and responsibilities
 
-### Core (`ClipFlowCore`, no AppKit)
+### Core (`ClipboardCore`, no AppKit)
 - **PasteboardSnapshot** — `[Representation]` plus `changeCount` and `frontmostBundleID`. Built by the app,
   consumed by core. Makes everything downstream testable without a real pasteboard.
 - **CapturePolicy** — pure function `decide(snapshot, settings) -> .skip(Reason) | .capture(ClipDraft)`:
@@ -112,7 +112,7 @@ Supported representations (allowlist; everything else is dropped):
 - **SearchIndex** — pure filtering over `[ClipItem]` with a precomputed folded search string per item.
 - **RetentionPolicy** — pure: `idsToDelete(items, policy, now) -> [UUID]`.
 
-### App (`ClipFlow`)
+### App (`Clipboard`)
 - **PasteboardMonitor** — `Timer` (0.5 s, tolerance 0.2 s) comparing `NSPasteboard.changeCount`. Before
   reading content it checks `accessBehavior` (macOS 15.4+): `.alwaysAllow` → read; `.default` → read (the
   first read may trigger the system alert, after which the state changes); `.ask` → do **not** read
@@ -160,7 +160,7 @@ copy in any app
 
 ## 6. Persistence
 
-Location: `~/Library/Application Support/ClipFlow/history.sqlite` — directory `0700`, file `0600`,
+Location: `~/Library/Application Support/Clipboard/history.sqlite` — directory `0700`, file `0600`,
 directory marked `isExcludedFromBackup` (Time Machine).
 
 ```sql
@@ -210,12 +210,12 @@ the store confirms.
 |---|---|---|
 | Clipboard monitoring | `NSPasteboard` has no change notification; polling `changeCount` is the standard approach. | 0.5 s timer with tolerance; no busy-wait. |
 | Pasteboard privacy | macOS 15.4 SDK added `NSPasteboard.accessBehavior` (`default/ask/alwaysAllow/alwaysDeny`); 15.4 shipped it as an opt-in preview and later releases enforce prompting for programmatic general-pasteboard reads. Exact enforcement and the Settings pane name are verified manually on the target OS (TEST_PLAN M-tests). | Monitor gates reads on `accessBehavior` (see §4); onboarding and menu explain how to set Always Allow. |
-| Global shortcut | Carbon `RegisterEventHotKey` is public and needs no permission. Since macOS 15 it rejects shortcuts whose only modifiers are ⌥ or ⌥⇧. The standard AppKit "Paste and Match Style" is ⌥⇧⌘V; `⌘⇧V` is "paste as plain text" only in some apps (Chrome, Slack, Google Docs, VS Code…), which ClipFlow overrides while registered. | Rebindable; recorder requires ⌘ or ⌃; conflict note in Settings. |
+| Global shortcut | Carbon `RegisterEventHotKey` is public and needs no permission. Since macOS 15 it rejects shortcuts whose only modifiers are ⌥ or ⌥⇧. The standard AppKit "Paste and Match Style" is ⌥⇧⌘V; `⌘⇧V` is "paste as plain text" only in some apps (Chrome, Slack, Google Docs, VS Code…), which Clipboard overrides while registered. | Rebindable; recorder requires ⌘ or ⌃; conflict note in Settings. |
 | Automated paste | Posting `CGEvent`s to other apps requires Accessibility (`AXIsProcessTrusted`). TCC grants are tied to the code signature; ad-hoc rebuilds reset them. | Optional; copy-only fallback. |
 | Secure Input | Secure Event Input blocks event taps/keystroke monitoring. Whether Carbon hotkeys keep firing is **unverified** (reports conflict). `IsSecureEventInputEnabled()` detects it. | Verify manually (TEST_PLAN); menu note only if verified to matter. |
 | Source app | No API identifies the app that wrote the pasteboard. Frontmost app at detection is a heuristic. | Exclusions documented as best-effort. |
 | App Sandbox | Sandboxed apps cannot reliably post events to other apps for auto-paste and need temporary exceptions. | Not sandboxed; Hardened Runtime on; distributed outside the Mac App Store. |
-| Keychain | Data-protection keychain needs a keychain-access-groups entitlement and provisioning (Team ID). ClipFlow uses the file-based login keychain in all builds; its ACL is tied to the code signature, so ad-hoc rebuilds may prompt "ClipFlow wants to use…". Accessibility constants like `…ThisDeviceOnly` are ignored by the file-based keychain (TN3137). | Accept; "Always Allow" once per build. Optional stable signing (below) avoids repeat prompts. |
+| Keychain | Data-protection keychain needs a keychain-access-groups entitlement and provisioning (Team ID). Clipboard uses the file-based login keychain in all builds; its ACL is tied to the code signature, so ad-hoc rebuilds may prompt "Clipboard wants to use…". Accessibility constants like `…ThisDeviceOnly` are ignored by the file-based keychain (TN3137). | Accept; "Always Allow" once per build. Optional stable signing (below) avoids repeat prompts. |
 | Signing for builders | Default: ad-hoc (`CODE_SIGN_IDENTITY = -`). Optional untracked `Local.xcconfig` sets `DEVELOPMENT_TEAM` (free Personal Team works) for a stable signature, so Accessibility and Keychain grants survive rebuilds. | Documented in README/CONTRIBUTING. |
 | Signing / notarization | Notarization requires a paid Developer ID. Ad-hoc signed apps from GitHub are quarantined; Gatekeeper requires right-click › Open or `xattr -dr com.apple.quarantine`. | Release workflow builds ad-hoc by default, Developer ID + notarization when secrets are configured. |
 | iOS / iPadOS | Apps can read the pasteboard only in the foreground; iOS 16+ shows a paste permission prompt; no background monitoring. Universal Clipboard has no public API — it simply populates the local pasteboard. | Phase C companion is user-initiated capture + synced history only. |

@@ -1,6 +1,6 @@
 # Security Policy
 
-ClipFlow stores clipboard history, which often contains secrets. Security reports are taken seriously.
+Clipboard stores clipboard history, which often contains secrets. Security reports are taken seriously.
 
 ## Reporting a vulnerability
 

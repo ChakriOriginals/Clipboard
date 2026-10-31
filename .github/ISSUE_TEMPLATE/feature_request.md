@@ -6,7 +6,7 @@ labels: enhancement
 
 **The problem you're trying to solve**
 
-**What you'd like ClipFlow to do**
+**What you'd like Clipboard to do**
 
 **Alternatives you've tried**
 
