@@ -30,10 +30,6 @@ where you were working.
 - **Keyboard first.** Search as you type, move with the arrow keys, press Return to paste, or press ⌘1–⌘9 to
   choose one of the first nine items. Pin items you reuse.
 
-<p align="center">
-  <img src="docs/images/panel-light.png" width="720" alt="The Clipboard panel: search field, filters, the history list on the left and a preview of the selected item on the right">
-</p>
-
 ## Install
 
 There are no prebuilt downloads yet, so you need to build the app from source on a Mac running macOS 14 Sonoma
@@ -96,44 +92,6 @@ Clipboard never asks for Full Disk Access, Screen Recording, Input Monitoring or
 To start Clipboard automatically, turn on **Launch Clipboard at login** in **Settings › General** (menu bar icon
 › Settings…).
 
-### Coming from ClipFlow?
-
-Clipboard used to be called ClipFlow. Quit ClipFlow first (menu bar icon › Quit), because only one copy of the
-app can run at a time. Then install Clipboard as above and delete `ClipFlow.app`. Your history and
-settings carry over: on first launch the data folder moves from `~/Library/Application Support/ClipFlow` to
-`~/Library/Application Support/Clipboard`.
-
-### Updating
-
-```bash
-cd Clipboard
-git pull
-make app
-cp -R build/Clipboard.app /Applications/
-```
-
-Quit Clipboard before copying the new version over the old one. Builds made on your Mac are signed locally,
-and each new build has a different signature. macOS may therefore ask for Keychain access again, and you may
-need to turn Accessibility off and on for Clipboard. To avoid this, sign with a free Apple ID: create
-`Config/Local.xcconfig` (it is not committed) containing your team ID from Xcode › Settings › Accounts:
-
-```
-DEVELOPMENT_TEAM = ABCDE12345
-CODE_SIGN_IDENTITY = Apple Development
-```
-
-### Uninstalling
-
-1. Turn off **Launch Clipboard at login**, then choose **Quit Clipboard** from the menu bar icon.
-2. Delete `/Applications/Clipboard.app`.
-3. To remove your history, its encryption key and your settings as well:
-
-   ```bash
-   rm -rf ~/Library/Application\ Support/Clipboard
-   security delete-generic-password -s dev.clipflow.ClipFlow.history-key
-   defaults delete dev.clipflow.ClipFlow
-   ```
-
 ### Troubleshooting
 
 | Problem | Fix |
@@ -184,24 +142,6 @@ items are never removed automatically.
 The full threat model is in [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md), with security audit reports in
 [docs/security-audit](docs/security-audit/README.md) and data handling in [PRIVACY.md](PRIVACY.md).
 
-## Limitations
-
-- Only copies made while Clipboard is running are recorded.
-- "Ignore copies made in these apps" uses the app that was in front during the copy. macOS doesn't say which
-  app wrote to the clipboard, so this is best effort.
-- Secret detection is a heuristic. It misses some secrets and flags some harmless text.
-- It hasn't been tested whether the global shortcut works while an app uses Secure Input (password fields, or
-  Terminal's Secure Keyboard Entry). The menu bar icon always works.
-- A single copy is skipped if it holds more than 2 MB of text, an image over 10 MB as PNG or more than
-  1,000 files. Unpinned history is limited to 2 GB in total, and the oldest items go first.
-
-## Roadmap
-
-- **Now:** the macOS app described above.
-- **Next:** signed and notarized downloads on the Releases page, and encrypted import and export.
-- **Later:** an iPhone and iPad companion with opt-in, end-to-end encrypted iCloud sync. iOS doesn't allow
-  background clipboard monitoring, so the phone app will capture on request. See
-  [docs/ARCHITECTURE.md §9](docs/ARCHITECTURE.md).
 
 ## Development
 
