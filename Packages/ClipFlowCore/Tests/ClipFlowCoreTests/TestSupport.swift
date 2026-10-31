@@ -22,3 +22,20 @@ struct UnreadableKeyStore: KeyStore {
     func createKey() throws -> SymmetricKey { throw KeyStoreError.writeFailed(status) }
     func deleteKey() throws { throw KeyStoreError.writeFailed(status) }
 }
+
+import CoreGraphics
+import ImageIO
+import UniformTypeIdentifiers
+
+func makeImage(width: Int, height: Int, type: UTType = .png) -> Data {
+    let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    context.setFillColor(red: 0.2, green: 0.5, blue: 0.9, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    let image = context.makeImage()!
+    let data = NSMutableData()
+    let destination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil)!
+    CGImageDestinationAddImage(destination, image, nil)
+    CGImageDestinationFinalize(destination)
+    return data as Data
+}
