@@ -31,7 +31,8 @@ public actor ClipStore {
     private var box: CryptoBox?
     private let log = Logger(subsystem: "dev.clipflow.ClipFlow", category: "store")
 
-    private static let canaryPlaintext = Data("Clipboard canary v1".utf8)
+    // Frozen from 0.1.0, like the HKDF salt: existing databases store this canary.
+    private static let canaryPlaintext = Data("ClipFlow canary v1".utf8)
     private static let encoder: PropertyListEncoder = {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .binary

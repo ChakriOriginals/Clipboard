@@ -24,7 +24,7 @@ with a nicer UI.
 ## 3. Cryptography
 
 - **Master key:** 256-bit random (`SymmetricKey(size: .bits256)`), created at first launch.
-- **Subkeys (HKDF-SHA256, salt = "Clipboard.v1"):** `encKey` (info "enc"), `hashKey` (info "hash").
+- **Subkeys (HKDF-SHA256, salt = "ClipFlow.v1", frozen since 0.1.0):** `encKey` (info "enc"), `hashKey` (info "hash").
 - **Encryption:** `AES.GCM.seal(plaintext, using: encKey, authenticating: aad)`; random 96-bit nonce per seal
   (CryptoKit default); stored as the combined representation (nonce ‖ ciphertext ‖ tag).
 - **AAD:** `"summary:" + id` or `"content:" + id`, so ciphertexts cannot be swapped between rows or
@@ -32,7 +32,7 @@ with a nicer UI.
 - **Content hash for dedup:** `HMAC-SHA256(hashKey, kind ‖ 0x00 ‖ canonical bytes)`, where canonical bytes are
   the plain text (UTF-8) for text kinds, PNG bytes for images, and the newline-joined file URLs for files.
   Keyed so the plaintext hash column cannot be used to confirm guesses of short secrets.
-- **Canary:** `meta.canary` = seal("Clipboard canary v1", aad "canary"). Open fails → wrong/missing key.
+- **Canary:** `meta.canary` = seal("ClipFlow canary v1", aad "canary"). Open fails → wrong/missing key.
 - **Nonce budget:** random nonces are safe far beyond 2³² seals per key; history never approaches this.
 
 Plaintext columns (by design, to allow sorting, retention and dedup without decryption): id, kind,

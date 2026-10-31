@@ -7,7 +7,8 @@ public struct CryptoBox: Sendable {
     private let hashKey: SymmetricKey
 
     public init(masterKey: SymmetricKey) {
-        let salt = Data("Clipboard.v1".utf8)
+        // Frozen crypto constant from 0.1.0: changing it (even for a rename) makes existing history unreadable.
+        let salt = Data("ClipFlow.v1".utf8)
         encKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: masterKey, salt: salt,
                                         info: Data("enc".utf8), outputByteCount: 32)
         hashKey = HKDF<SHA256>.deriveKey(inputKeyMaterial: masterKey, salt: salt,

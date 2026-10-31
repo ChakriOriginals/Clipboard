@@ -7,6 +7,6 @@ let package = Package(
     products: [.library(name: "ClipboardCore", targets: ["ClipboardCore"])],
     targets: [
         .target(name: "ClipboardCore", linkerSettings: [.linkedLibrary("sqlite3")]),
-        .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"]),
+        .testTarget(name: "ClipboardCoreTests", dependencies: ["ClipboardCore"], resources: [.copy("Fixtures")]),
     ]
 )
