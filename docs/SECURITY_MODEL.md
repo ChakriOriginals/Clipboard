@@ -86,7 +86,9 @@ preview stays inside the encrypted summary and is masked at display time ("Sensi
 in the accessibility label, and in the search index; thumbnails are not shown. "Mark as (not) sensitive"
 toggles all of this both ways. Expired sensitive items disappear from the panel and cannot be restored the
 moment they expire; the deletion sweep runs every minute. Restored sensitive items carry
-`org.nspasteboard.ConcealedType` so other clipboard tools skip them. Or *Don't save*.
+`org.nspasteboard.ConcealedType` so other clipboard tools skip them. They are
+written for this Mac only (no Universal Clipboard), and their preview text can't be selected and copied
+with ⌘C, so restore is the only way a secret leaves the panel. Or *Don't save*.
 
 ## 6. Input handling rules
 

@@ -23,6 +23,7 @@ Fixes from the redesign review and security audit run 2 (see `docs/security-audi
 - Secret detection can no longer be driven into quadratic regex time by a crafted copy.
 - Oversized pasteboard changes are rejected while reading, before parsing; image decode work is budgeted per change.
 - A copy captured during Clear Everything no longer reappears afterwards.
+- Restored sensitive items stay on this Mac (no Universal Clipboard); their preview text can't be copied with ⌘C.
 - Unpinned history has a 2 GB total size budget (oldest dropped first), and large deletes give disk space back.
 - HTML-only previews keep invisible characters visible, and a comment can no longer hide text that pastes.
 - Release packaging gates can no longer pass a bad build because of `grep -q` under `pipefail`.

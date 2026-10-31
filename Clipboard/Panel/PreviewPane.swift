@@ -101,10 +101,12 @@ struct PreviewPane: View {
                             Label(name, systemImage: "doc").font(.body)
                         }
                         if let text = preview.text {
-                            Text(text)
+                            let label = Text(text)
                                 .font(item.kind == .code ? .system(size: 12, design: .monospaced) : .body)
                                 .lineSpacing(item.kind == .code ? 2 : 1)
-                                .textSelection(.enabled)
+                            // A secret leaves only through restore (↩ / ⇧↩), which marks it concealed and
+                            // keeps it off other devices; ⌘C on selected preview text would do neither.
+                            if item.isSensitive { label } else { label.textSelection(.enabled) }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

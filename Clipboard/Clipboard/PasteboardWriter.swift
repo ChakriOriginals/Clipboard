@@ -9,11 +9,12 @@ enum PasteboardWriter {
 
     /// Writes every item and flavor. The first PNG image also offers TIFF, produced only if another app
     /// asks for it and only up to `TIFFProvider.maxPixels`; one per restore, since TIFF is uncompressed. `concealed` adds the nspasteboard.org
-    /// marker so other clipboard tools skip a restored secret. Returns the resulting change count so
+    /// marker so other clipboard tools skip a restored secret,
+    /// and keeps it to this Mac (no Universal Clipboard). Returns the resulting change count so
     /// the monitor can ignore this write.
     @discardableResult
     static func write(_ content: ClipContent, to pasteboard: NSPasteboard, concealed: Bool = false) -> Int {
-        pasteboard.clearContents()
+        if concealed { pasteboard.prepareForNewContents(with: .currentHostOnly) } else { pasteboard.clearContents() }
         providers = []
         let items = content.items.map { reps -> NSPasteboardItem in
             let item = NSPasteboardItem()
