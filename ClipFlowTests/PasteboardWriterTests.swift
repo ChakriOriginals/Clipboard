@@ -37,4 +37,11 @@ final class PasteboardWriterTests: XCTestCase {
         XCTAssertNotNil(pb.data(forType: .tiff))
         XCTAssertNotNil(NSImage(pasteboard: pb))
     }
+
+    func testSensitiveRestoreIsMarkedConcealed() {
+        let content = ClipContent(items: [[Representation(type: PasteboardType.plainText, data: Data("secret".utf8))]])
+        PasteboardWriter.write(content, to: pb, concealed: true)
+        XCTAssertEqual(pb.string(forType: .string), "secret")
+        XCTAssertNotNil(pb.data(forType: NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")))
+    }
 }

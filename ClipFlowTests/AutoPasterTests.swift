@@ -20,4 +20,12 @@ final class AutoPasterTests: XCTestCase {
     func testKeyCodeForVIsAValidVirtualKey() {
         XCTAssertLessThan(AutoPaster.keyCodeForV(), 128)
     }
+
+    func testDoesNotPasteWhenPasteboardChangedSinceRestore() {
+        var posted = 0
+        let paster = AutoPaster(isTrusted: { true }, post: { _ in posted += 1 })
+        XCTAssertFalse(paster.paste(ifChangeCountIs: 41, current: 42))
+        XCTAssertTrue(paster.paste(ifChangeCountIs: 42, current: 42))
+        XCTAssertEqual(posted, 1)
+    }
 }

@@ -16,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Unit tests use this app as their host; don't touch the real clipboard, Keychain or hotkeys.
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        // Two copies would poll the same pasteboard and open the same history file.
+        let bundleID = Bundle.main.bundleIdentifier ?? ""
+        if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).count > 1 {
+            NSApp.terminate(nil)
+            return
+        }
         let controller = AppController()
         self.controller = controller
         controller.start()

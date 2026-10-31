@@ -17,7 +17,15 @@ struct Shortcut: Codable, Equatable, Sendable {
     var modifierFlags: NSEvent.ModifierFlags { NSEvent.ModifierFlags(rawValue: modifiers) }
 
     /// macOS 15+ rejects hotkeys whose only modifiers are ⌥ or ⌥⇧; require ⌘ or ⌃.
-    var isValid: Bool { !modifierFlags.isDisjoint(with: [.command, .control]) }
+    var isValid: Bool {
+        guard !modifierFlags.isDisjoint(with: [.command, .control]) else { return false }
+        // ⌘ plus a standard editing/app key would break that command everywhere (and ⌘V would
+        // swallow ClipFlow's own synthetic paste).
+        return !(modifierFlags == .command && Self.reservedCommandKeys.contains(Int(keyCode)))
+    }
+
+    private static let reservedCommandKeys: Set<Int> = [kVK_ANSI_V, kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_Z,
+                                                         kVK_ANSI_A, kVK_ANSI_Q, kVK_ANSI_W]
 
     var carbonModifiers: UInt32 {
         var result: UInt32 = 0

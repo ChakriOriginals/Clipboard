@@ -54,11 +54,18 @@ final class ContentClassifierTests: XCTestCase {
     }
 
     func testStripTagsIsLinearOnUnterminatedInput() {
-        for payload in [String(repeating: "<", count: 2_000_000), String(repeating: "<script>", count: 250_000),
-                        String(repeating: "<a ", count: 600_000)] {
-            let start = Date()
-            _ = ContentClassifier.stripTags(payload)
-            XCTAssertLessThan(Date().timeIntervalSince(start), 2.0)
+        // Doubling the input must roughly double the time (a backtracking regex quadruples it).
+        func time(_ s: String) -> TimeInterval {
+            let start = DispatchTime.now()
+            _ = ContentClassifier.stripTags(s)
+            return Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
+        }
+        for unit in ["<", "<script>", "<a "] {
+            let small = String(repeating: unit, count: 100_000 / unit.count)
+            let large = String(repeating: unit, count: 400_000 / unit.count)
+            _ = time(small) // warm up
+            let ratio = time(large) / max(time(small), 1e-4)
+            XCTAssertLessThan(ratio, 8, "4x input took \(ratio)x time for unit \(unit)")
         }
     }
 

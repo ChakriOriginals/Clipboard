@@ -17,6 +17,9 @@ final class AppController {
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var retentionTimer: Timer?
+    private var isChoosing = false
+    /// The app that was frontmost when the panel opened; auto-paste only targets it.
+    var pasteTargetPID: pid_t?
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -33,7 +36,7 @@ final class AppController {
             settings: { [unowned self] in settings.captureSettings },
             accessState: { PasteAccessState.current(for: .general) },
             frontmostApp: { NSWorkspace.shared.frontmostApplication.map { ($0.bundleIdentifier, $0.localizedName) } },
-            onSnapshot: { [weak self] snapshot in Task { await self?.model.ingest(snapshot) } },
+            onSnapshot: { [weak self] snapshot in self?.model.enqueue(snapshot, capturedAt: Date()) },
             onSkip: { _ in })
         panel = PanelController(app: self)
         menuBar = MenuBarController(app: self)
@@ -43,10 +46,14 @@ final class AppController {
             await model.load()
             monitor.start()
         }
-        let timer = Timer(timeInterval: 3_600, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { _ = Task { await self?.model.applyRetention() } }
+        // Every minute: cheap in-memory pass, so a 10-minute sensitive expiry is honored within a minute.
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.model.refreshForTimeChange()
+                _ = Task { await self?.model.applyRetention() }
+            }
         }
-        timer.tolerance = 300
+        timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
         retentionTimer = timer
 
@@ -61,14 +68,25 @@ final class AppController {
 
     /// Restores an entry; optionally pastes it into the app that was active before the panel opened.
     func choose(_ id: UUID, paste: Bool) {
+        guard !isChoosing else { return } // a second ↩ while the first restore is in flight
+        isChoosing = true
+        let target = pasteTargetPID
         Task {
-            guard await model.restore(id: id, to: .general, onWrite: { [monitor] in monitor?.ignore(changeCount: $0) }) != nil
+            defer { isChoosing = false }
+            monitor.pollNow() // capture anything copied just before the restore overwrites it
+            guard let written = await model.restore(id: id, to: .general,
+                                                    onWrite: { [monitor] in monitor?.ignore(changeCount: $0) })
             else { return }
             panel.hide()
             guard paste else { return }
             // Let the previous app's window become key again before sending ⌘V.
             try? await Task.sleep(for: .milliseconds(80))
-            if !AutoPaster().paste() { promptForAccessibilityOnce() }
+            // Paste only our own write, and only into the app the user was working in.
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target else { return }
+            let paster = AutoPaster()
+            if !paster.paste(ifChangeCountIs: written, current: NSPasteboard.general.changeCount), !paster.isTrusted() {
+                promptForAccessibilityOnce()
+            }
         }
     }
 

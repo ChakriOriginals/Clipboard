@@ -15,6 +15,10 @@ final class SettingsStore {
     static let defaultExcludedApps = ["com.apple.keychainaccess", "com.apple.Passwords",
                                       "com.1password.1password", "com.bitwarden.desktop"]
 
+    static let retentionDayChoices = [1, 7, 30, 90]
+    static let maxItemChoices = [100, 500, 1_000, 5_000, 10_000]
+    static let sensitiveExpiryChoices = [10, 60, 1_440]
+
     var shortcut: Shortcut { didSet { defaults.set(try? JSONEncoder().encode(shortcut), forKey: "shortcut") } }
     var pasteOnSelect: Bool { didSet { defaults.set(pasteOnSelect, forKey: "pasteOnSelect") } }
     /// nil = keep forever.
@@ -39,14 +43,16 @@ final class SettingsStore {
 
         shortcut = defaults.data(forKey: "shortcut").flatMap { try? JSONDecoder().decode(Shortcut.self, from: $0) } ?? .default
         pasteOnSelect = bool("pasteOnSelect", true)
+        // Values come from a plist any same-user process can edit: accept only what the UI offers.
         let days = int("retentionDays", 30)
-        retentionDays = days > 0 ? days : nil
-        maxItems = int("maxItems", 1_000)
+        retentionDays = days <= 0 ? nil : (Self.retentionDayChoices.contains(days) ? days : 30)
+        let max = int("maxItems", 1_000)
+        maxItems = Self.maxItemChoices.contains(max) ? max : 1_000
         captureImages = bool("captureImages", true)
         captureFiles = bool("captureFiles", true)
         sensitiveHandling = defaults.string(forKey: "sensitiveHandling").flatMap(SensitiveHandling.init(rawValue:)) ?? .maskAndExpire
         let minutes = int("sensitiveExpiryMinutes", 60)
-        sensitiveExpiryMinutes = minutes > 0 ? minutes : nil
+        sensitiveExpiryMinutes = minutes <= 0 ? nil : (Self.sensitiveExpiryChoices.contains(minutes) ? minutes : 60)
         excludedBundleIDs = defaults.stringArray(forKey: "excludedBundleIDs") ?? Self.defaultExcludedApps
         isPaused = bool("isPaused", false)
         panelPosition = defaults.string(forKey: "panelPosition").flatMap(PanelPosition.init(rawValue:)) ?? .center

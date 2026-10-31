@@ -20,7 +20,7 @@ struct ClipRowView: View {
             leading
                 .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(item.summary.previewText)
+                Text(item.displayPreview)
                     .font(item.kind == .code ? .system(.body, design: .monospaced) : .body)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -51,12 +51,12 @@ struct ClipRowView: View {
         .onTapGesture { app.choose(item.id, paste: app.settings.pasteOnSelect) }
         .contextMenu { menu }
         .task(id: item.id) {
-            if item.hasThumbnail, app.settings.showThumbnails {
+            if item.hasThumbnail, app.settings.showThumbnails, !item.isSensitive {
                 thumbnail = await app.model.thumbnail(for: item.id)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(item.kind.label), \(item.summary.previewText)")
+        .accessibilityLabel("\(item.kind.label), \(item.displayPreview)")
         .accessibilityValue(subtitle + (item.isPinned ? ", pinned" : ""))
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
         .accessibilityAction { app.choose(item.id, paste: app.settings.pasteOnSelect) }
@@ -66,7 +66,7 @@ struct ClipRowView: View {
 
     @ViewBuilder
     private var leading: some View {
-        if let thumbnail {
+        if let thumbnail, !item.isSensitive {
             Image(nsImage: thumbnail)
                 .resizable()
                 .aspectRatio(contentMode: .fill)

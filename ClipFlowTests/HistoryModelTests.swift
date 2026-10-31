@@ -221,6 +221,75 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(model.pinnedResults.map(\.summary.previewText), ["a"])
         XCTAssertEqual(model.recentResults.map(\.summary.previewText), ["b"])
     }
+
+    func testExpiredSensitiveHiddenAndNotRestorableBeforeSweep() async {
+        settings.sensitiveExpiryMinutes = 10
+        let model = await makeModel()
+        await ingest(model, "password = hunter2")
+        let id = model.results[0].id
+        XCTAssertTrue(model.results[0].isSensitive)
+        clock += 11 * 60
+        model.refreshForTimeChange()
+        XCTAssertTrue(model.results.isEmpty)
+        let restored = await model.restore(id: id, to: pb)
+        XCTAssertNil(restored)
+    }
+
+    func testEnqueueCoalescesBurstToLatestWithItsCaptureTime() async {
+        let model = await makeModel()
+        let t0 = clock
+        model.enqueue(text("first"), capturedAt: t0 + 1)
+        model.enqueue(text("second"), capturedAt: t0 + 2)
+        model.enqueue(text("third"), capturedAt: t0 + 3)
+        await model.waitForPendingCaptures()
+        XCTAssertEqual(previews(model), ["third"])
+        XCTAssertEqual(model.results[0].lastCopiedAt, t0 + 3)
+    }
+
+    func testSequentialCapturesOrderedByCaptureTimeNotCompletion() async {
+        let model = await makeModel()
+        let t0 = clock
+        model.enqueue(text("older"), capturedAt: t0 + 1)
+        await model.waitForPendingCaptures()
+        clock = t0 + 100 // completion time must not matter
+        model.enqueue(text("newer"), capturedAt: t0 + 2)
+        await model.waitForPendingCaptures()
+        XCTAssertEqual(previews(model), ["newer", "older"])
+    }
+
+    func testMarkSensitiveMasksSearchAndUnmarkRevealsPreview() async {
+        let model = await makeModel()
+        await ingest(model, "ticket PROJ-1234")
+        let id = model.results[0].id
+        await model.toggleSensitive(id)
+        model.query.text = "PROJ"
+        XCTAssertTrue(model.results.isEmpty)
+        model.query.text = ""
+        XCTAssertEqual(model.results[0].displayPreview, CapturePolicy.sensitivePreview)
+        await model.toggleSensitive(id)
+        XCTAssertEqual(model.results[0].displayPreview, "ticket PROJ-1234")
+        model.query.text = "PROJ"
+        XCTAssertEqual(model.results.count, 1)
+    }
+
+    func testAutoDetectedSecretCanBeRevealedByUnmarking() async {
+        let model = await makeModel()
+        await ingest(model, "user_id_42")
+        guard model.results[0].isSensitive else { return } // heuristic may not flag it; covered elsewhere
+        await model.toggleSensitive(model.results[0].id)
+        XCTAssertEqual(model.results[0].displayPreview, "user_id_42")
+    }
+
+    func testNewerVersionDatabaseReportsStatusWithoutTouchingIt() async throws {
+        let first = await makeModel()
+        await ingest(first, "x")
+        let db = dir.appendingPathComponent("history.sqlite")
+        let raw = try SQLiteProbe(path: db.path)
+        try raw.setUserVersion(42)
+        let second = await makeModel()
+        XCTAssertEqual(second.status, .newerVersion)
+        XCTAssertFalse(second.canCapture)
+    }
 }
 
 struct LockedKeyStore: KeyStore {

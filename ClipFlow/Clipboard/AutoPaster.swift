@@ -15,6 +15,14 @@ struct AutoPaster {
         return true
     }
 
+    /// Pastes only if the pasteboard still holds what ClipFlow wrote, so another app can't swap
+    /// its own content in between the restore and the synthetic ⌘V.
+    func paste(ifChangeCountIs expected: Int, current: Int) -> Bool {
+        guard expected == current, isTrusted() else { return false }
+        post(Self.keyCodeForV())
+        return true
+    }
+
     /// Shows the system Accessibility prompt (once per signature).
     static func requestTrust() {
         // "AXTrustedCheckOptionPrompt" is the value of kAXTrustedCheckOptionPrompt (a C global Swift 6 treats as unsafe).

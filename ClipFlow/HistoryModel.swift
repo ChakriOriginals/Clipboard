@@ -10,6 +10,8 @@ enum StoreStatus: Equatable {
     case locked
     /// The previous history was unreadable and moved to this file.
     case recovered(URL)
+    /// The history file comes from a newer ClipFlow; it is left untouched and nothing is captured.
+    case newerVersion
     case failed
 }
 
@@ -27,6 +29,8 @@ final class HistoryModel {
     @ObservationIgnored private let settings: SettingsStore
     @ObservationIgnored private let now: () -> Date
     @ObservationIgnored private var searchKeys: [UUID: String] = [:]
+    @ObservationIgnored private var pendingCapture: (snapshot: PasteboardSnapshot, capturedAt: Date)?
+    @ObservationIgnored private var captureWorker: Task<Void, Never>?
     @ObservationIgnored private let thumbnails: NSCache<NSUUID, NSImage> = {
         let cache = NSCache<NSUUID, NSImage>()
         cache.countLimit = 200
@@ -61,6 +65,9 @@ final class HistoryModel {
         } catch ClipStoreError.locked {
             status = .locked
             setItems([])
+        } catch ClipStoreError.newerVersion {
+            status = .newerVersion
+            setItems([])
         } catch {
             log.error("Failed to open history: \(String(describing: type(of: error)), privacy: .public)")
             status = .failed
@@ -70,7 +77,7 @@ final class HistoryModel {
     var canCapture: Bool {
         switch status {
         case .ready, .recovered: true
-        case .loading, .locked, .failed: false
+        case .loading, .locked, .newerVersion, .failed: false
         }
     }
 
@@ -81,15 +88,36 @@ final class HistoryModel {
 
     // MARK: Capture
 
-    func ingest(_ snapshot: PasteboardSnapshot) async {
+    /// Queues a capture. One capture is processed at a time; while one runs, newer snapshots replace
+    /// any still-waiting one, so a flood of pasteboard changes can't pile up decode work or memory.
+    func enqueue(_ snapshot: PasteboardSnapshot, capturedAt: Date) {
+        pendingCapture = (snapshot, capturedAt)
+        guard captureWorker == nil else { return }
+        captureWorker = Task {
+            while let next = pendingCapture {
+                pendingCapture = nil
+                await ingest(next.snapshot, capturedAt: next.capturedAt)
+            }
+            captureWorker = nil
+        }
+    }
+
+    func waitForPendingCaptures() async {
+        while let worker = captureWorker { await worker.value }
+    }
+
+    /// Captures a snapshot. `capturedAt` is when the change was observed, so slow decodes can't
+    /// reorder history.
+    func ingest(_ snapshot: PasteboardSnapshot, capturedAt: Date? = nil) async {
         guard canCapture else { return }
+        let observedAt = capturedAt ?? now()
         let settings = self.settings.captureSettings
         let decision = await Task.detached(priority: .userInitiated) {
             CapturePolicy.decide(snapshot, settings: settings)
         }.value
         guard case .capture(let draft) = decision else { return }
         do {
-            let item = try await store.insertOrBump(draft, now: now())
+            let item = try await store.insertOrBump(draft, now: observedAt)
             upsert(item)
             await applyRetention()
         } catch {
@@ -103,9 +131,12 @@ final class HistoryModel {
     /// `onWrite` runs synchronously right after the write, before any suspension, so the monitor can
     /// ignore ClipFlow's own change before its next poll.
     func restore(id: UUID, to pasteboard: NSPasteboard, onWrite: (Int) -> Void = { _ in }) async -> Int? {
+        guard let target = items.first(where: { $0.id == id }), !isExpired(target) else { return nil }
         do {
             let content = try await store.content(id: id)
-            let changeCount = PasteboardWriter.write(content, to: pasteboard)
+            // Re-check after the await: the item may have expired or been deleted meanwhile.
+            guard let current = items.first(where: { $0.id == id }), !isExpired(current) else { return nil }
+            let changeCount = PasteboardWriter.write(content, to: pasteboard, concealed: current.isSensitive)
             onWrite(changeCount)
             let time = now()
             try await store.bump(id: id, now: time)
@@ -189,6 +220,15 @@ final class HistoryModel {
         return image
     }
 
+    /// Re-filters for the passage of time (expiry) without touching storage.
+    func refreshForTimeChange() {
+        recompute()
+    }
+
+    private func isExpired(_ item: ClipItem) -> Bool {
+        RetentionPolicy.isExpired(item, settings: settings.retentionSettings, now: now())
+    }
+
     // MARK: Selection
 
     /// Called each time the panel opens: clear the search and select the most recent entry.
@@ -232,7 +272,8 @@ final class HistoryModel {
     }
 
     private func recompute(preferredIndex: Int? = nil) {
-        results = SearchIndex.filter(items, keys: searchKeys, query: query, now: now(), calendar: .current)
+        let visible = items.filter { !isExpired($0) }
+        results = SearchIndex.filter(visible, keys: searchKeys, query: query, now: now(), calendar: .current)
         if let selectedID, results.contains(where: { $0.id == selectedID }) { return }
         if results.isEmpty {
             selectedID = nil

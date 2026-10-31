@@ -50,6 +50,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         switch app.model.status {
         case .locked: notes.append("History locked — Keychain access denied")
         case .failed: notes.append("History unavailable")
+        case .newerVersion: notes.append("History needs a newer ClipFlow")
         default: break
         }
         switch app.accessState {

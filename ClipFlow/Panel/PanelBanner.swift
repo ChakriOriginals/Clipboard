@@ -40,10 +40,15 @@ struct PanelBanner: View {
                           actionTitle: "Retry") { Task { await app.model.load() } }
         case .recovered(let url):
             return Notice(icon: "exclamationmark.triangle",
-                          message: "Previous history couldn’t be decrypted and was set aside.",
+                          message: "Previous history couldn’t be opened with this Mac’s key and was set aside. Clear Everything deletes it.",
                           actionTitle: "Show File") {
                 NSWorkspace.shared.activateFileViewerSelecting([url])
                 app.model.acknowledgeRecovery()
+            }
+        case .newerVersion:
+            return Notice(icon: "arrow.up.circle", message: "This history was saved by a newer version of ClipFlow. Update ClipFlow to use it; nothing has been changed.",
+                          actionTitle: "Show File") {
+                NSWorkspace.shared.activateFileViewerSelecting([app.dataDirectory])
             }
         case .failed:
             return Notice(icon: "exclamationmark.triangle", message: "History couldn’t be opened.",

@@ -44,6 +44,7 @@ final class PanelController {
     func show() {
         let interval = signposter.beginInterval("PanelOpen")
         let start = DispatchTime.now()
+        app.pasteTargetPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         app.model.resetForPresentation()
         hostingView.rootView = PanelView(app: app, focus: focus, accessState: app.accessState)
         position()

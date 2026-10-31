@@ -77,4 +77,14 @@ final class SettingsStoreTests: XCTestCase {
         defaults.set(Data("garbage".utf8), forKey: "shortcut")
         XCTAssertEqual(SettingsStore(defaults: defaults).shortcut, .default)
     }
+
+    func testOutOfRangeIntegersFallBackToDefaults() {
+        defaults.set(-1, forKey: "maxItems")
+        defaults.set(-5, forKey: "retentionDays")
+        defaults.set(999_999, forKey: "sensitiveExpiryMinutes")
+        let s = SettingsStore(defaults: defaults)
+        XCTAssertEqual(s.maxItems, 1_000)
+        XCTAssertNil(s.retentionDays)
+        XCTAssertEqual(s.sensitiveExpiryMinutes, 60)
+    }
 }

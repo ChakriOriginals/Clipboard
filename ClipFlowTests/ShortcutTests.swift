@@ -1,3 +1,4 @@
+import Carbon.HIToolbox
 import XCTest
 @testable import ClipFlow
 
@@ -36,5 +37,12 @@ final class ShortcutTests: XCTestCase {
     func testCodableRoundTrip() throws {
         let s = Shortcut(keyCode: 40, modifiers: [.control, .command])
         XCTAssertEqual(try JSONDecoder().decode(Shortcut.self, from: JSONEncoder().encode(s)), s)
+    }
+
+    func testStandardEditingShortcutsAreReserved() {
+        for key in [kVK_ANSI_V, kVK_ANSI_C, kVK_ANSI_X, kVK_ANSI_Z, kVK_ANSI_A, kVK_ANSI_Q, kVK_ANSI_W] {
+            XCTAssertFalse(Shortcut(keyCode: UInt32(key), modifiers: [.command]).isValid, "⌘ + \(key)")
+        }
+        XCTAssertTrue(Shortcut(keyCode: UInt32(kVK_ANSI_V), modifiers: [.command, .option]).isValid)
     }
 }
