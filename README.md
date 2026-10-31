@@ -8,11 +8,11 @@ any item back into the app you were using. It works like Windows' Win + V, built
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
-  <a href="docs/media/clipboard-demo.mp4">
+  <a href="https://github.com/ChakriOriginals/Clipboard/raw/main/docs/media/clipboard-demo.mp4">
     <img src="docs/media/clipboard-demo.gif" width="720" alt="Clipboard in 21 seconds: press ⇧⌘V, search your history, catch a file name with a hidden character, reveal a masked password">
   </a>
   <br>
-  <sub><a href="docs/media/clipboard-demo.mp4">Watch the 21-second video with sound</a></sub>
+  <sub><a href="https://github.com/ChakriOriginals/Clipboard/raw/main/docs/media/clipboard-demo.mp4">Download the 21-second video with sound (MP4, 4 MB)</a></sub>
 </p>
 
 ## What it does
