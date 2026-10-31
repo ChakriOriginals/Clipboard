@@ -53,6 +53,20 @@ final class ContentClassifierTests: XCTestCase {
         XCTAssertEqual(c.previewText, "Hi & bye")
     }
 
+    func testStripTagsIsLinearOnUnterminatedInput() {
+        for payload in [String(repeating: "<", count: 2_000_000), String(repeating: "<script>", count: 250_000),
+                        String(repeating: "<a ", count: 600_000)] {
+            let start = Date()
+            _ = ContentClassifier.stripTags(payload)
+            XCTAssertLessThan(Date().timeIntervalSince(start), 2.0)
+        }
+    }
+
+    func testStripTagsHandlesNestedAndCaseInsensitiveBlocks() {
+        XCTAssertEqual(ContentClassifier.stripTags("<SCRIPT type=x>a<b>c</SCRIPT >Keep<br/>this &lt;ok&gt;"), "Keep this <ok>")
+        XCTAssertEqual(ContentClassifier.stripTags("a < b and c > d"), "a < b and c > d")
+    }
+
     func testFiles() throws {
         let items = ["file:///Users/me/a.txt", "file:///Users/me/My%20Doc.pdf", "file:///tmp/c"].map {
             [rep(PasteboardType.fileURL, $0)]

@@ -29,10 +29,20 @@ public enum RetentionPolicy {
                 survivors.append(item)
             }
         }
-        if survivors.count > settings.maxCount {
+        let limit = max(0, settings.maxCount)
+        if survivors.count > limit {
             survivors.sort { $0.lastCopiedAt > $1.lastCopiedAt }
-            doomed += survivors[settings.maxCount...].map(\.id)
+            doomed += survivors[limit...].map(\.id)
         }
         return doomed
+    }
+
+    /// Age-based expiry for one item, so readers can hide expired items between sweeps.
+    public static func isExpired(_ item: ClipItem, settings: RetentionSettings, now: Date) -> Bool {
+        guard !item.isPinned else { return false }
+        let age = now.timeIntervalSince(item.lastCopiedAt)
+        if let maxAge = settings.maxAge, age > maxAge { return true }
+        if item.isSensitive, let expiry = settings.sensitiveExpiry, age > expiry { return true }
+        return false
     }
 }

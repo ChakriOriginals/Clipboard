@@ -16,7 +16,7 @@ final class SQLiteDatabase {
     private var handle: OpaquePointer?
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-    init(path: String) throws {
+    init(path: String, busyTimeoutMilliseconds: Int32 = 2_000) throws {
         let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX
         let rc = sqlite3_open_v2(path, &handle, flags, nil)
         guard rc == SQLITE_OK else {
@@ -25,6 +25,15 @@ final class SQLiteDatabase {
             handle = nil
             throw error
         }
+        sqlite3_busy_timeout(handle, busyTimeoutMilliseconds)
+    }
+
+    /// SQLite takes Int32 lengths; refuse (rather than trap on) anything larger.
+    static func checkedLength(_ count: Int) throws -> Int32 {
+        guard let length = Int32(exactly: count) else {
+            throw SQLiteError(code: SQLITE_TOOBIG, message: String(cString: sqlite3_errstr(SQLITE_TOOBIG)))
+        }
+        return length
     }
 
     deinit {
@@ -112,10 +121,15 @@ final class SQLiteDatabase {
             case .double(let v): rc = sqlite3_bind_double(statement, index, v)
             case .text(let v): rc = sqlite3_bind_text(statement, index, v, -1, Self.transient)
             case .blob(let v):
+                let length: Int32
+                do { length = try Self.checkedLength(v.count) } catch {
+                    sqlite3_finalize(statement)
+                    throw error
+                }
                 rc = v.withUnsafeBytes { buffer in
                     // A zero-length blob must still bind as a blob, not NULL.
                     sqlite3_bind_blob(statement, index, buffer.baseAddress ?? UnsafeRawPointer(bitPattern: 1),
-                                      Int32(v.count), Self.transient)
+                                      length, Self.transient)
                 }
             case .null: rc = sqlite3_bind_null(statement, index)
             }

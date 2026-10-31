@@ -9,7 +9,8 @@ public enum SearchIndex {
 
     /// Precompute once per item; sensitive items carry only their masked preview.
     public static func searchKey(for item: ClipItem) -> String {
-        fold(([item.summary.previewText] + item.summary.fileNames).joined(separator: " "))
+        if item.isSensitive { return fold(CapturePolicy.sensitivePreview) }
+        return fold(([item.summary.previewText] + item.summary.fileNames).joined(separator: " "))
     }
 
     /// Matches when every whitespace-separated term occurs; ordered pinned first, then most recent.

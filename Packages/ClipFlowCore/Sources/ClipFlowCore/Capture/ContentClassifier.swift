@@ -100,17 +100,42 @@ public enum ContentClassifier {
         return score >= 3
     }
 
-    private static let blockTags = try! NSRegularExpression(
-        pattern: #"<(script|style)\b[^>]*>.*?</\1\s*>"#, options: [.caseInsensitive, .dotMatchesLineSeparators])
-    private static let anyTag = try! NSRegularExpression(pattern: #"<[^>]*>"#)
-
+    /// Removes tags and the contents of <script>/<style> in one linear pass (no regex backtracking
+    /// on attacker-controlled HTML). A "<" that does not start a tag is kept as text.
     static func stripTags(_ html: String) -> String {
-        var s = String(html.prefix(2_000_000))
-        s = blockTags.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
-        s = anyTag.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: " ")
-        for (entity, char) in [("&nbsp;", " "), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'"), ("&amp;", "&")] {
-            s = s.replacingOccurrences(of: entity, with: char)
+        let chars = Array(html.prefix(2_000_000).unicodeScalars)
+        // nextClose[i] = index of the first ">" at or after i (one backward pass keeps this linear).
+        var nextClose = [Int](repeating: -1, count: chars.count + 1)
+        for j in stride(from: chars.count - 1, through: 0, by: -1) {
+            nextClose[j] = chars[j] == ">" ? j : nextClose[j + 1]
         }
-        return preview(s, limit: Int.max)
+        var out = String.UnicodeScalarView()
+        var i = 0
+        var skipUntil: String?          // closing tag name while inside script/style
+        while i < chars.count {
+            let c = chars[i]
+            guard c == "<", i + 1 < chars.count,
+                  chars[i + 1] == "/" || chars[i + 1] == "!" || chars[i + 1].properties.isAlphabetic,
+                  case let close = nextClose[i + 1], close >= 0
+            else {
+                if skipUntil == nil { out.append(c) }
+                i += 1
+                continue
+            }
+            let tag = String(String.UnicodeScalarView(chars[(i + 1)..<close])).lowercased()
+            let name = tag.drop { $0 == "/" }.prefix { $0.isLetter }
+            if let block = skipUntil {
+                if tag.hasPrefix("/") && name == block { skipUntil = nil }
+            } else if !tag.hasPrefix("/"), name == "script" || name == "style" {
+                skipUntil = String(name)
+            }
+            if skipUntil == nil { out.append(" ") }
+            i = close + 1
+        }
+        var text = String(out)
+        for (entity, char) in [("&nbsp;", " "), ("&lt;", "<"), ("&gt;", ">"), ("&quot;", "\""), ("&#39;", "'"), ("&amp;", "&")] {
+            text = text.replacingOccurrences(of: entity, with: char)
+        }
+        return preview(text, limit: Int.max)
     }
 }

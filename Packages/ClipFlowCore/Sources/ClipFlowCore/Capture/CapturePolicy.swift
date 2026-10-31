@@ -16,12 +16,22 @@ public enum CapturePolicy {
     public static let maxSourceImageBytes = 100_000_000
     public static let maxImagePixels = 100_000_000
     public static let maxFileURLs = 1_000
+    /// Upper bounds for one pasteboard change, across all items and flavors.
+    public static let maxItems = 1_000
+    public static let maxTotalBytes = 100_000_000
     public static let sensitivePreview = "Sensitive item — hidden"
 
     private static let textTypes: Set<String> = [PasteboardType.plainText, PasteboardType.rtf, PasteboardType.html, PasteboardType.url]
 
     /// Checks that need only type names and the frontmost app, so the monitor can skip a change
     /// without ever reading its content (paused, password-manager markers, excluded app, nothing supported).
+    /// Positive dimensions whose product fits `maxImagePixels`, without trapping on overflow.
+    public static func pixelsWithinLimit(width: Int, height: Int) -> Bool {
+        guard width > 0, height > 0 else { return false }
+        let (pixels, overflow) = width.multipliedReportingOverflow(by: height)
+        return !overflow && pixels <= maxImagePixels
+    }
+
     public static func precheck(types: Set<String>, frontmostBundleID: String?, settings: CaptureSettings) -> SkipReason? {
         if settings.isPaused { return .paused }
         if !types.isDisjoint(with: PasteboardType.neverCapture) { return .concealed }
@@ -39,6 +49,8 @@ public enum CapturePolicy {
             .map { $0.filter { PasteboardType.allowlist.contains($0.type) && !$0.data.isEmpty } }
             .filter { !$0.isEmpty }
         if items.isEmpty { return .skip(.empty) }
+        if items.count > maxItems { return .skip(.tooLarge) }
+        if items.joined().reduce(0, { $0 + $1.data.count }) > maxTotalBytes { return .skip(.tooLarge) }
 
         let textBytes = items.joined().filter { textTypes.contains($0.type) }.reduce(0) { $0 + $1.data.count }
         if textBytes > maxTextBytes { return .skip(.tooLarge) }
@@ -55,7 +67,7 @@ public enum CapturePolicy {
             if source.count > maxSourceImageBytes { return .skip(.tooLarge) }
             if let png, png.count > maxImageBytes { return .skip(.tooLarge) }
             guard let size = Thumbnailer.pixelSize(source) else { continue }
-            if size.width * size.height > maxImagePixels { return .skip(.tooLarge) }
+            if !pixelsWithinLimit(width: size.width, height: size.height) { return .skip(.tooLarge) }
             guard let pngData = png ?? Thumbnailer.pngData(fromImageData: source) else { continue }
             if pngData.count > maxImageBytes { return .skip(.tooLarge) }
             items[index].insert(Representation(type: PasteboardType.png, data: pngData), at: 0)
@@ -84,7 +96,6 @@ public enum CapturePolicy {
            SensitivityDetector.isSensitive(text) {
             if settings.sensitiveHandling == .dontSave { return .skip(.sensitive) }
             sensitive = true
-            preview = sensitivePreview
         }
 
         return .capture(ClipDraft(

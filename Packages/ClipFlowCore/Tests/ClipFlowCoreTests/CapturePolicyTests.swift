@@ -98,7 +98,9 @@ final class CapturePolicyTests: XCTestCase {
     func testSensitiveMaskedByDefault() throws {
         let d = try draft(CapturePolicy.decide(snapshot(text("password = hunter2")), settings: settings))
         XCTAssertTrue(d.isSensitive)
-        XCTAssertEqual(d.previewText, "Sensitive item — hidden")
+        // The real preview is kept (encrypted at rest) and masked at display/search time,
+        // so "Mark as Not Sensitive" can reveal it again.
+        XCTAssertEqual(d.previewText, "password = hunter2")
         XCTAssertEqual(d.content.items[0][0].data, Data("password = hunter2".utf8))
     }
 
@@ -144,6 +146,34 @@ final class CapturePolicyTests: XCTestCase {
         let d = try draft(CapturePolicy.decide(snapshot(items), settings: settings))
         XCTAssertEqual(d.content.items.count, 2)
         XCTAssertEqual(d.previewText, "one")
+    }
+}
+
+final class CapturePolicyLimitTests: XCTestCase {
+    let settings = CaptureSettings(isPaused: false, excludedBundleIDs: [], captureImages: true, captureFiles: true,
+                                   sensitiveHandling: .maskAndExpire)
+
+    func snapshot(_ items: [[Representation]]) -> PasteboardSnapshot {
+        PasteboardSnapshot(items: items, types: Set(items.flatMap { $0.map(\.type) }), frontmostBundleID: nil, frontmostAppName: nil)
+    }
+
+    func testPixelLimitRejectsOverflowAndNonPositiveDimensions() {
+        XCTAssertTrue(CapturePolicy.pixelsWithinLimit(width: 10_000, height: 10_000))
+        XCTAssertFalse(CapturePolicy.pixelsWithinLimit(width: 10_001, height: 10_000))
+        XCTAssertFalse(CapturePolicy.pixelsWithinLimit(width: Int.max, height: Int.max))
+        XCTAssertFalse(CapturePolicy.pixelsWithinLimit(width: -1, height: 100))
+        XCTAssertFalse(CapturePolicy.pixelsWithinLimit(width: 0, height: 100))
+    }
+
+    func testTooManyItemsSkipped() {
+        let items = (0...CapturePolicy.maxItems).map { [Representation(type: PasteboardType.plainText, data: Data("\($0)".utf8))] }
+        guard case .skip(.tooLarge) = CapturePolicy.decide(snapshot(items), settings: settings) else { return XCTFail("expected tooLarge") }
+    }
+
+    func testAggregateImageBytesCapped() {
+        let png = Data(repeating: 1, count: 9_000_000) // under the per-image cap
+        let items = (0..<12).map { _ in [Representation(type: PasteboardType.png, data: png)] }
+        guard case .skip(.tooLarge) = CapturePolicy.decide(snapshot(items), settings: settings) else { return XCTFail("expected tooLarge") }
     }
 }
 

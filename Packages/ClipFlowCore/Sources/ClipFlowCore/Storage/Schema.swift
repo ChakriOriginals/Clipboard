@@ -26,6 +26,8 @@ enum Schema {
 
     static func migrate(_ db: SQLiteDatabase) throws {
         let current = try db.userVersion()
+        // A newer ClipFlow wrote this file: never migrate down or purge rows we can't understand.
+        if current > migrations.count { throw ClipStoreError.newerVersion }
         guard current < migrations.count else { return }
         try db.transaction {
             for version in current..<migrations.count {

@@ -43,7 +43,9 @@ final class SearchIndexTests: XCTestCase {
     }
 
     func testSensitiveMatchedOnlyByMaskedLabel() {
-        let secret = makeItem(CapturePolicy.sensitivePreview, sensitive: true)
+        let secret = makeItem("token hunter2", sensitive: true, fileNames: ["secret.txt"])
+        XCTAssertEqual(secret.displayPreview, CapturePolicy.sensitivePreview)
+        XCTAssertEqual(search([secret], "secret.txt").count, 0)
         XCTAssertEqual(search([secret], "hunter2").count, 0)
         XCTAssertEqual(search([secret], "sensitive").count, 1)
     }

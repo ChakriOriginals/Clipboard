@@ -44,4 +44,20 @@ final class RetentionPolicyTests: XCTestCase {
         let ids = RetentionPolicy.idsToDelete(items, settings: RetentionSettings(maxAge: 2.5 * day, maxCount: 2, sensitiveExpiry: nil), now: now)
         XCTAssertEqual(Set(ids), [items[2].id, items[3].id])
     }
+
+    func testNegativeOrZeroMaxCountDoesNotTrap() {
+        let items = (0..<3).map { makeItem("\($0)", lastCopied: ago(Double($0))) }
+        XCTAssertEqual(RetentionPolicy.idsToDelete([], settings: RetentionSettings(maxAge: nil, maxCount: -1, sensitiveExpiry: nil), now: now), [])
+        XCTAssertEqual(Set(RetentionPolicy.idsToDelete(items, settings: RetentionSettings(maxAge: nil, maxCount: -5, sensitiveExpiry: nil), now: now)),
+                       Set(items.map(\.id)))
+    }
+
+    func testIsExpired() {
+        let settings = RetentionSettings(maxAge: 30 * day, maxCount: 10, sensitiveExpiry: 600)
+        XCTAssertTrue(RetentionPolicy.isExpired(makeItem("s", lastCopied: ago(601), sensitive: true), settings: settings, now: now))
+        XCTAssertFalse(RetentionPolicy.isExpired(makeItem("s", lastCopied: ago(599), sensitive: true), settings: settings, now: now))
+        XCTAssertFalse(RetentionPolicy.isExpired(makeItem("p", lastCopied: ago(601), pinned: true, sensitive: true), settings: settings, now: now))
+        XCTAssertTrue(RetentionPolicy.isExpired(makeItem("o", lastCopied: ago(31 * day)), settings: settings, now: now))
+        XCTAssertFalse(RetentionPolicy.isExpired(makeItem("n", lastCopied: ago(601)), settings: settings, now: now))
+    }
 }

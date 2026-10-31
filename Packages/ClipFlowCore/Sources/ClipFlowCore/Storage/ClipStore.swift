@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import os
+import SQLite3
 
 public enum StoreOpenResult: Sendable, Equatable {
     case opened
@@ -13,13 +14,19 @@ public enum ClipStoreError: Error, Equatable {
     case locked(OSStatus)
     case notOpen
     case notFound
+    /// The history file was written by a newer ClipFlow version; it is left untouched.
+    case newerVersion
 }
+
+/// The file is not ClipFlow history encrypted with this key (canary mismatch or foreign rows).
+private struct ForeignDatabase: Error {}
 
 /// Encrypted clipboard history repository. Serializes all SQLite access.
 public actor ClipStore {
     private let directory: URL
     private let keyStore: KeyStore
     private let deviceID: String
+    private let busyTimeoutMilliseconds: Int32
     private var db: SQLiteDatabase?
     private var box: CryptoBox?
     private let log = Logger(subsystem: "dev.clipflow.ClipFlow", category: "store")
@@ -31,10 +38,11 @@ public actor ClipStore {
         return encoder
     }()
 
-    public init(directory: URL, keyStore: KeyStore, deviceID: String) {
+    public init(directory: URL, keyStore: KeyStore, deviceID: String, busyTimeoutMilliseconds: Int32 = 2_000) {
         self.directory = directory
         self.keyStore = keyStore
         self.deviceID = deviceID
+        self.busyTimeoutMilliseconds = busyTimeoutMilliseconds
     }
 
     private var databaseURL: URL { directory.appendingPathComponent("history.sqlite") }
@@ -66,6 +74,13 @@ public actor ClipStore {
 
         do {
             try openDatabase(box: box)
+        } catch let error as SQLiteError where ![SQLITE_NOTADB, SQLITE_CORRUPT].contains(error.code) {
+            // Busy, I/O, full disk, permissions…: transient or environmental. Never move live history aside.
+            close()
+            throw error
+        } catch ClipStoreError.newerVersion {
+            close()
+            throw ClipStoreError.newerVersion
         } catch {
             log.error("History database unreadable; moving aside")
             close()
@@ -80,6 +95,11 @@ public actor ClipStore {
         close()
         for suffix in ["", "-journal", "-wal", "-shm"] {
             try? FileManager.default.removeItem(atPath: databaseURL.path + suffix)
+        }
+        // Copies set aside by earlier recoveries are history too.
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        for name in names where name.hasPrefix("history.unreadable-") {
+            try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
         }
         try keyStore.deleteKey()
         _ = try open()
@@ -103,9 +123,14 @@ public actor ClipStore {
 
     private func openDatabase(box: CryptoBox) throws {
         let isNew = !FileManager.default.fileExists(atPath: databaseURL.path)
-        let db = try SQLiteDatabase(path: databaseURL.path)
-        try db.execute("PRAGMA journal_mode = DELETE; PRAGMA secure_delete = ON;")
-        try Schema.migrate(db)
+        let db = try SQLiteDatabase(path: databaseURL.path, busyTimeoutMilliseconds: busyTimeoutMilliseconds)
+        do {
+            try db.execute("PRAGMA journal_mode = DELETE; PRAGMA secure_delete = ON;")
+            try Schema.migrate(db)
+        } catch {
+            db.close()
+            throw error
+        }
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: databaseURL.path)
 
         var canary: Data?
@@ -113,7 +138,7 @@ public actor ClipStore {
         if let canary {
             guard (try? box.open(canary, aad: "canary")) == Self.canaryPlaintext else {
                 db.close()
-                throw ClipStoreError.locked(errSecDecode)
+                throw ForeignDatabase()
             }
         } else {
             // A database with rows but no canary was not written by us; refuse to adopt it.
@@ -121,7 +146,7 @@ public actor ClipStore {
             try db.query("SELECT COUNT(*) FROM clips", []) { rows = Int($0.int(0)) }
             guard isNew || rows == 0 else {
                 db.close()
-                throw ClipStoreError.locked(errSecDecode)
+                throw ForeignDatabase()
             }
             try db.run("INSERT INTO meta (key, value) VALUES ('canary', ?)",
                        [.blob(try box.seal(Self.canaryPlaintext, aad: "canary"))])
@@ -228,10 +253,10 @@ public actor ClipStore {
             FROM clips ORDER BY last_copied_at DESC
             """, []) { row in
             guard let id = row.text(0).flatMap(UUID.init(uuidString:)) else { return }
-            if let item = Self.decodeItem(row: row, id: id, box: box) {
-                items.append(item)
-            } else {
-                corrupt.append(id)
+            switch Self.decodeRow(row: row, id: id, box: box) {
+            case .item(let item): items.append(item)
+            case .unauthentic: corrupt.append(id)
+            case .unknownFormat: break // e.g. written by a newer version: keep, don't show
             }
         }
         if !corrupt.isEmpty {
@@ -266,19 +291,29 @@ public actor ClipStore {
             SELECT id, kind, created_at, last_copied_at, content_hash, is_pinned, is_sensitive, device_id,
                    byte_size, summary, thumbnail IS NOT NULL
             FROM clips WHERE id = ?
-            """, [.text(id.uuidString)]) { found = Self.decodeItem(row: $0, id: id, box: box) }
+            """, [.text(id.uuidString)]) {
+                if case .item(let item) = Self.decodeRow(row: $0, id: id, box: box) { found = item }
+            }
         guard let found else { throw ClipStoreError.notFound }
         return found
     }
 
-    private static func decodeItem(row: SQLiteDatabase.Row, id: UUID, box: CryptoBox) -> ClipItem? {
+    private enum DecodedRow {
+        case item(ClipItem)
+        /// AES-GCM authentication failed: tampered or corrupt — safe to purge.
+        case unauthentic
+        /// Authentic but not understood (unknown kind or summary format): leave it alone.
+        case unknownFormat
+    }
+
+    private static func decodeRow(row: SQLiteDatabase.Row, id: UUID, box: CryptoBox) -> DecodedRow {
+        guard let plain = try? box.open(row.blob(9), aad: "summary:\(id.uuidString)") else { return .unauthentic }
         guard let kind = row.text(1).flatMap(ClipKind.init(rawValue:)),
-              let plain = try? box.open(row.blob(9), aad: "summary:\(id.uuidString)"),
               let summary = try? PropertyListDecoder().decode(ClipSummary.self, from: plain)
-        else { return nil }
-        return ClipItem(id: id, kind: kind, createdAt: Date(timeIntervalSince1970: row.double(2)),
+        else { return .unknownFormat }
+        return .item(ClipItem(id: id, kind: kind, createdAt: Date(timeIntervalSince1970: row.double(2)),
                         lastCopiedAt: Date(timeIntervalSince1970: row.double(3)), contentHash: row.blob(4),
                         isPinned: row.int(5) != 0, isSensitive: row.int(6) != 0, deviceID: row.text(7) ?? "",
-                        byteSize: Int(row.int(8)), hasThumbnail: row.int(10) != 0, summary: summary)
+                        byteSize: Int(row.int(8)), hasThumbnail: row.int(10) != 0, summary: summary))
     }
 }

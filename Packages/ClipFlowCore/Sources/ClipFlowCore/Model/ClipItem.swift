@@ -14,6 +14,9 @@ public struct ClipItem: Identifiable, Sendable, Equatable {
     public let hasThumbnail: Bool
     public let summary: ClipSummary
 
+    /// What the UI may show: sensitive items are masked at display time; the real preview stays encrypted.
+    public var displayPreview: String { isSensitive ? CapturePolicy.sensitivePreview : summary.previewText }
+
     public init(id: UUID, kind: ClipKind, createdAt: Date, lastCopiedAt: Date, contentHash: Data,
                 isPinned: Bool, isSensitive: Bool, deviceID: String, byteSize: Int,
                 hasThumbnail: Bool, summary: ClipSummary) {

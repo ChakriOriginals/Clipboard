@@ -223,4 +223,63 @@ final class ClipStoreTests: XCTestCase {
             XCTAssertEqual(error as? ClipStoreError, .notOpen)
         }
     }
+
+    func testNewerSchemaIsRefusedAndLeftUntouched() async throws {
+        let store = try await makeStore()
+        _ = try await store.insertOrBump(textDraft("future"), now: now)
+        let raw = try SQLiteDatabase(path: dbURL.path)
+        try raw.setUserVersion(99)
+        raw.close()
+        let before = try Data(contentsOf: dbURL)
+        let reopened = ClipStore(directory: dir, keyStore: keys, deviceID: "d")
+        do {
+            _ = try await reopened.open()
+            XCTFail("expected newerVersion")
+        } catch {
+            XCTAssertEqual(error as? ClipStoreError, .newerVersion)
+        }
+        XCTAssertEqual(try Data(contentsOf: dbURL), before)
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.contains("unreadable") }, [])
+    }
+
+    func testUnknownKindIsSkippedButNotDeleted() async throws {
+        let store = try await makeStore()
+        let item = try await store.insertOrBump(textDraft("from the future"), now: now)
+        let raw = try SQLiteDatabase(path: dbURL.path)
+        try raw.run("UPDATE clips SET kind = 'hologram' WHERE id = ?", [.text(item.id.uuidString)])
+        let (items, purged) = try await store.allItems()
+        XCTAssertTrue(items.isEmpty)
+        XCTAssertEqual(purged, 0)
+        var count = 0
+        try raw.query("SELECT COUNT(*) FROM clips", []) { count = Int($0.int(0)) }
+        XCTAssertEqual(count, 1)
+    }
+
+    func testBusyDatabaseIsNotMovedAside() async throws {
+        let store = try await makeStore()
+        _ = try await store.insertOrBump(textDraft("live"), now: now)
+        let locker = try SQLiteDatabase(path: dbURL.path)
+        try locker.execute("BEGIN EXCLUSIVE")
+        let second = ClipStore(directory: dir, keyStore: keys, deviceID: "d", busyTimeoutMilliseconds: 50)
+        do {
+            _ = try await second.open()
+            XCTFail("expected an error while the database is locked")
+        } catch {
+            XCTAssertNotEqual(error as? ClipStoreError, .locked(errSecDecode))
+        }
+        try locker.execute("ROLLBACK")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.contains("unreadable") }, [])
+        let items = try await store.allItems().items
+        XCTAssertEqual(items.count, 1)
+    }
+
+    func testDestroyEverythingRemovesMovedAsideCopies() async throws {
+        let store = try await makeStore()
+        _ = try await store.insertOrBump(textDraft("old"), now: now)
+        let fresh = ClipStore(directory: dir, keyStore: InMemoryKeyStore(), deviceID: "d")
+        _ = try await fresh.open()
+        try await fresh.destroyEverything()
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasPrefix("history") }
+        XCTAssertEqual(leftovers, ["history.sqlite"])
+    }
 }

@@ -56,4 +56,9 @@ final class SQLiteDatabaseTests: XCTestCase {
         try db.run("DELETE FROM t", [])
         XCTAssertEqual(db.changes, 2)
     }
+
+    func testCheckedLengthRejectsOversizedBuffers() {
+        XCTAssertEqual(try SQLiteDatabase.checkedLength(5), 5)
+        XCTAssertThrowsError(try SQLiteDatabase.checkedLength(Int(Int32.max) + 1))
+    }
 }
