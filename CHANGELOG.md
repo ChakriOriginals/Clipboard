@@ -16,3 +16,14 @@ All notable changes to this project are documented here. The format follows
 - Privacy controls: pause, app exclusions, concealed-item filtering, secret detection with masking and expiry,
   retention by age and count.
 - Settings, first-run onboarding, launch at login.
+
+### Security
+Fixes from the pre-release code review and security audit (run 1, see `docs/security-audit/`):
+- HTML preview stripping is linear; a crafted HTML-only copy could previously pin a CPU core for hours.
+- Per-change limits on item count and total bytes; overflow-safe image dimension checks; lazy, bounded TIFF on restore.
+- Capture is serialized and coalesced; history order uses the observed copy time.
+- Auto-paste is bound to ClipFlow's own pasteboard write and to the app that was frontmost.
+- Sensitive expiry is enforced within a minute and on read; manual "Mark as sensitive" masks preview, search and thumbnails.
+- Clear Everything also removes set-aside history copies; recovery never moves live history aside for transient errors.
+- Release builds no longer carry `get-task-allow` or coverage instrumentation.
+- Release workflow: protected `release` environment, least-privilege publish job, tag must be on `main` and match the version.

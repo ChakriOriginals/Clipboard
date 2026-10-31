@@ -35,6 +35,16 @@ rebuilds — see the README.
 - **No warnings.** The project treats Swift warnings as errors.
 - Keep changes focused; update docs and `CHANGELOG.md` when behavior changes.
 
+## Releases (maintainers)
+
+1. In GitHub **Settings › Environments**, create `release` with required reviewers and a deployment rule allowing
+   only `v*` tags. Put `DEVELOPER_ID_*` and `NOTARY_*` secrets there (never as repository secrets).
+2. Add a tag ruleset so only maintainers can create `v*` tags.
+3. Bump `MARKETING_VERSION` in `project.yml`, update `CHANGELOG.md`, merge to `main`, then tag `vX.Y.Z` on `main`.
+4. The workflow builds, tests, signs (if configured) and creates a **draft** release for you to review and publish.
+
+Before the first release, confirm the pinned action SHAs in `.github/workflows/*.yml` still match their tags.
+
 ## Pull requests
 
 1. Fork, branch from `main`.

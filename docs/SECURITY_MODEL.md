@@ -81,9 +81,12 @@ and documented in README and PRIVACY.md.
 Heuristics are a convenience, not a defense. False positives are expected: users can toggle "Mark as not
 sensitive"; false negatives are possible: users can mark sensitive, delete, or pause.
 
-**Handling** (setting): *Save, mask, expire* (default) — stored encrypted, preview replaced with
-"Sensitive item — hidden", excluded from content search, deleted after the sensitive expiry unless pinned;
-or *Don't save*.
+**Handling** (setting): *Save, mask, expire* (default) — stored encrypted like everything else; the real
+preview stays inside the encrypted summary and is masked at display time ("Sensitive item — hidden"),
+in the accessibility label, and in the search index; thumbnails are not shown. "Mark as (not) sensitive"
+toggles all of this both ways. Expired sensitive items disappear from the panel and cannot be restored the
+moment they expire; the deletion sweep runs every minute. Restored sensitive items carry
+`org.nspasteboard.ConcealedType` so other clipboard tools skip them. Or *Don't save*.
 
 ## 6. Input handling rules
 
@@ -94,12 +97,27 @@ or *Don't save*.
 - HTML: stored as opaque bytes for restore; never rendered or parsed by `NSAttributedString`
   (which would spin up WebKit).
 - RTF: parsed via AppKit only to derive a preview when no plain text exists; capped at 2 MB.
-- Images: decoded with ImageIO for thumbnailing; capped at 10 MB encoded and 100 megapixels.
+- Images: decoded with ImageIO for thumbnailing; capped at 10 MB encoded and 100 megapixels per image, with
+  overflow-checked, positive-only dimension math. TIFF for other apps is produced lazily on request and only
+  for images up to 25 megapixels.
+- Per pasteboard change: at most 1,000 items and 100 MB across all flavors; anything larger is skipped.
+- HTML preview stripping is a single linear pass (no backtracking regex on untrusted input).
+- Capture is serialized: one snapshot is processed at a time and a flood of changes coalesces to the latest,
+  so a writer cannot pile up decode work. History order uses the time the change was observed.
+- Auto-paste posts ⌘V only if the pasteboard still holds ClipFlow's own write and the app that was frontmost
+  when the panel opened is still frontmost; a second ↩ during a restore is ignored.
 - Code: displayed as text in a monospaced font. Never executed or syntax-highlighted via external tools.
 
 ## 7. Process and platform
 
-- Not sandboxed (auto-paste); Hardened Runtime enabled; no entitlements beyond defaults.
+- Not sandboxed (auto-paste); Hardened Runtime enabled. Release builds carry no `get-task-allow` entitlement
+  and no coverage instrumentation; `scripts/package-release.sh` refuses to package either.
+- One instance at a time; SQLite uses a busy timeout. The live database is moved aside only when it is not
+  ClipFlow history for this key (canary mismatch, foreign rows, not-a-database, corrupt) — never for busy or I/O
+  errors. A database written by a newer schema is refused and left untouched. Rows that fail AES-GCM
+  authentication are purged; authentic rows the app does not understand are kept.
+- Clear Everything also deletes `history.unreadable-*.sqlite` copies left by earlier recoveries, and on any
+  failure clears in-memory history and reports the failure instead of pretending to succeed.
 - No network code: CI fails if `URLSession`, `Network`, `NWConnection`, or `CFNetwork` appear in sources.
 - Logging: `os.Logger(subsystem: <bundle id>)`. Messages contain only kinds, counts, byte sizes, and error
   codes; interpolations of content-derived values are forbidden (CI grep for `previewText`, `data` in log
@@ -112,6 +130,7 @@ or *Don't save*.
 ## 8. Residual risks
 
 - Same-user malware with Accessibility/Keychain access can read history (and the live clipboard anyway).
+- Settings (UserDefaults) can be edited by same-user processes; out-of-range values fall back to defaults.
 - Activity metadata (timestamps, kinds, sizes) is plaintext in the DB.
 - The global shortcut overrides `⌘⇧V` in other apps while registered.
 - Exclusions rely on the frontmost app, which may not be the app that wrote the pasteboard.
