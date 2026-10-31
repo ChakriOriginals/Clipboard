@@ -290,10 +290,27 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(second.status, .newerVersion)
         XCTAssertFalse(second.canCapture)
     }
+
+    func testClearEverythingFailureClearsMemoryAndReportsFailure() async {
+        let keys = UndeletableKeyStore()
+        let model = await makeModel(keyStore: keys)
+        await ingest(model, "x")
+        await model.clearEverything()
+        XCTAssertTrue(model.items.isEmpty)
+        XCTAssertEqual(model.status, .failed)
+    }
 }
 
 struct LockedKeyStore: KeyStore {
     func loadKey() throws -> SymmetricKey? { throw KeyStoreError.unreadable(-25293) }
     func createKey() throws -> SymmetricKey { throw KeyStoreError.unreadable(-25293) }
     func deleteKey() throws { throw KeyStoreError.unreadable(-25293) }
+}
+
+/// Behaves like a normal store except that the key can't be deleted.
+final class UndeletableKeyStore: KeyStore, @unchecked Sendable {
+    private let inner = InMemoryKeyStore()
+    func loadKey() throws -> SymmetricKey? { try inner.loadKey() }
+    func createKey() throws -> SymmetricKey { try inner.createKey() }
+    func deleteKey() throws { throw KeyStoreError.writeFailed(-25300) }
 }

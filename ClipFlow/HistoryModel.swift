@@ -198,7 +198,11 @@ final class HistoryModel {
             status = .ready
             setItems([])
         } catch {
-            log.error("Failed to erase history")
+            // Files may already be gone: never keep showing (or restoring) what the user asked to erase.
+            log.error("Failed to erase history: \(String(describing: type(of: error)), privacy: .public)")
+            thumbnails.removeAllObjects()
+            setItems([])
+            status = .failed
         }
     }
 
