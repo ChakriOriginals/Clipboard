@@ -6,11 +6,17 @@ public struct RetentionSettings: Equatable, Sendable {
     public var maxCount: Int
     /// nil = sensitive items follow normal retention.
     public var sensitiveExpiry: TimeInterval?
+    /// Total size of unpinned history. Each copy can be up to 100 MB, so a count limit alone would let one
+    /// app grow history to item limit × 100 MB.
+    public var maxTotalBytes: Int
+    public static let defaultMaxTotalBytes = 2_000_000_000
 
-    public init(maxAge: TimeInterval?, maxCount: Int, sensitiveExpiry: TimeInterval?) {
+    public init(maxAge: TimeInterval?, maxCount: Int, sensitiveExpiry: TimeInterval?,
+                maxTotalBytes: Int = RetentionSettings.defaultMaxTotalBytes) {
         self.maxAge = maxAge
         self.maxCount = maxCount
         self.sensitiveExpiry = sensitiveExpiry
+        self.maxTotalBytes = maxTotalBytes
     }
 }
 
@@ -29,10 +35,13 @@ public enum RetentionPolicy {
                 survivors.append(item)
             }
         }
+        // Keep the newest, up to the count limit and the size budget.
+        survivors.sort { $0.lastCopiedAt > $1.lastCopiedAt }
         let limit = max(0, settings.maxCount)
-        if survivors.count > limit {
-            survivors.sort { $0.lastCopiedAt > $1.lastCopiedAt }
-            doomed += survivors[limit...].map(\.id)
+        var total = 0
+        for (index, item) in survivors.enumerated() {
+            total += item.byteSize
+            if index >= limit || total > settings.maxTotalBytes { doomed.append(item.id) }
         }
         return doomed
     }

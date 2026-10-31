@@ -240,12 +240,22 @@ public actor ClipStore {
                 try db.run("DELETE FROM clips WHERE id = ?", [.text(id.uuidString)])
             }
         }
+        reclaimSpaceIfWasteful(db)
     }
 
     public func clearUnpinned() throws {
         let (db, _) = try requireOpen()
         try db.run("DELETE FROM clips WHERE is_pinned = 0", [])
-        try db.execute("VACUUM")
+        try? db.execute("VACUUM") // the rows are gone either way; compaction is best effort (e.g. a full disk)
+    }
+
+    /// SQLite keeps freed pages in the file. Once retention has freed a lot, rewrite the file so a burst of
+    /// large copies doesn't leave history at its high-water size.
+    private func reclaimSpaceIfWasteful(_ db: SQLiteDatabase) {
+        var freePages: Int64 = 0, pageSize: Int64 = 0
+        try? db.query("PRAGMA freelist_count", []) { freePages = $0.int(0) }
+        try? db.query("PRAGMA page_size", []) { pageSize = $0.int(0) }
+        if freePages * pageSize > 64_000_000 { try? db.execute("VACUUM") }
     }
 
     private func update(_ sql: String, _ args: [SQLValue]) throws {

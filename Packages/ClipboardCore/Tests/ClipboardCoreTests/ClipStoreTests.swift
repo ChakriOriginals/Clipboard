@@ -40,6 +40,19 @@ final class ClipStoreTests: XCTestCase {
         XCTAssertEqual(content.items[0][0].data, Data("hello café 👋".utf8))
     }
 
+    func testDeletingLargeEntriesGivesTheSpaceBack() async throws {
+        let store = try await makeStore()
+        var ids: [UUID] = []
+        for i in 0..<9 {
+            ids.append(try await store.insertOrBump(textDraft("\(i)" + String(repeating: "a", count: 8_000_000)), now: now).id)
+        }
+        let full = try XCTUnwrap(try dbURL.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        XCTAssertGreaterThan(full, 70_000_000)
+        try await store.delete(ids: ids)
+        let after = try XCTUnwrap(try dbURL.resourceValues(forKeys: [.fileSizeKey]).fileSize)
+        XCTAssertLessThan(after, 5_000_000, "retention deletes must not leave the file at its high-water size")
+    }
+
     func testDuplicateBumpsInsteadOfInserting() async throws {
         let store = try await makeStore()
         let first = try await store.insertOrBump(textDraft("same"), now: now)

@@ -52,6 +52,20 @@ final class RetentionPolicyTests: XCTestCase {
                        Set(items.map(\.id)))
     }
 
+    func testOldestUnpinnedDroppedOnceTotalSizeExceedsBudget() {
+        func item(_ name: String, mb: Int, hoursAgo: Double, pinned: Bool = false) -> ClipItem {
+            let base = makeItem(name, lastCopied: ago(hoursAgo * 3600), pinned: pinned)
+            return ClipItem(id: base.id, kind: base.kind, createdAt: base.createdAt, lastCopiedAt: base.lastCopiedAt,
+                            contentHash: base.contentHash, isPinned: pinned, isSensitive: false, deviceID: "d",
+                            byteSize: mb * 1_000_000, hasThumbnail: false, summary: base.summary)
+        }
+        let newest = item("new", mb: 60, hoursAgo: 1), middle = item("mid", mb: 60, hoursAgo: 2)
+        let oldest = item("old", mb: 60, hoursAgo: 3), pinned = item("pin", mb: 500, hoursAgo: 4, pinned: true)
+        let settings = RetentionSettings(maxAge: nil, maxCount: 1_000, sensitiveExpiry: nil, maxTotalBytes: 150_000_000)
+        let ids = RetentionPolicy.idsToDelete([oldest, pinned, newest, middle], settings: settings, now: now)
+        XCTAssertEqual(ids, [oldest.id], "newest kept within budget; pinned never deleted")
+    }
+
     func testIsExpired() {
         let settings = RetentionSettings(maxAge: 30 * day, maxCount: 10, sensitiveExpiry: 600)
         XCTAssertTrue(RetentionPolicy.isExpired(makeItem("s", lastCopied: ago(601), sensitive: true), settings: settings, now: now))
