@@ -1,0 +1,9 @@
+// Default: ad-hoc signing, no Apple Developer account needed.
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_STYLE = Manual
+DEVELOPMENT_TEAM =
+
+// Optional, untracked: set DEVELOPMENT_TEAM (a free Personal Team works) and
+// CODE_SIGN_IDENTITY = Apple Development for a stable signature, so Accessibility
+// and Keychain grants survive rebuilds. See CONTRIBUTING.md.
+#include? "Local.xcconfig"

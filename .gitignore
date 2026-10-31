@@ -1,1 +1,11 @@
 .superpowers/
+.DS_Store
+build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+!Packages/**/*.xcworkspace/
+Packages/ClipFlowCore/.build/
+Packages/ClipFlowCore/.swiftpm/
+Config/Local.xcconfig
+*.xcresult

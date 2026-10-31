@@ -1,0 +1,58 @@
+name: ClipFlow
+options:
+  bundleIdPrefix: dev.clipflow
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+packages:
+  ClipFlowCore:
+    path: Packages/ClipFlowCore
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    GCC_TREAT_WARNINGS_AS_ERRORS: YES
+targets:
+  ClipFlow:
+    type: application
+    platform: macOS
+    sources:
+      - ClipFlow
+    dependencies:
+      - package: ClipFlowCore
+      - sdk: Carbon.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.clipflow.ClipFlow
+        PRODUCT_NAME: ClipFlow
+        INFOPLIST_FILE: ClipFlow/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: ClipFlow/Resources/ClipFlow.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+  ClipFlowTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - ClipFlowTests
+    dependencies:
+      - target: ClipFlow
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.clipflow.ClipFlowTests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  ClipFlow:
+    build:
+      targets:
+        ClipFlow: all
+        ClipFlowTests: [test]
+    test:
+      targets:
+        - ClipFlowTests
+      gatherCoverageData: true
