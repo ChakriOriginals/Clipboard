@@ -1,128 +1,225 @@
 # Clipboard
 
-Clipboard history for macOS: press **⇧⌘V**, find anything you copied, and paste it where you were working.
-Like Windows' Win + V, built natively for the Mac.
+**Clipboard history for macOS.** Press **⇧⌘V** anywhere to see everything you've copied, search it, and paste
+any item back into the app you were using. It works like Windows' Win + V, built natively for the Mac.
 
-- **Local and encrypted.** History stays on your Mac, encrypted with a key kept in your Keychain.
-- **No account, no network, no tracking.** The app contains no networking code at all.
-- **Keyboard first.** Search, arrow keys, Return to paste, ⌘1–⌘9 for the first nine items.
-- **Text, rich text, links, code, images and files**, with pinning, filters and automatic cleanup.
-- **Careful with secrets.** Items that password managers mark as concealed are never saved; things that
-  look like API keys or passwords are hidden and removed after an hour (configurable).
+[![CI](https://github.com/ChakriOriginals/Clipboard/actions/workflows/ci.yml/badge.svg)](https://github.com/ChakriOriginals/Clipboard/actions/workflows/ci.yml)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <p align="center">
-  <img src="docs/images/panel-light.png" width="720" alt="Clipboard panel in light mode: search, filters, history list and a preview of exactly what will be pasted">
+  <a href="docs/media/clipboard-demo.mp4">
+    <img src="docs/media/clipboard-demo.gif" width="720" alt="Clipboard in 21 seconds: press ⇧⌘V, search your history, catch a file name with a hidden character, reveal a masked password">
+  </a>
+  <br>
+  <sub><a href="docs/media/clipboard-demo.mp4">Watch the 21-second video with sound</a></sub>
 </p>
+
+## What it does
+
+Clipboard runs in the menu bar and keeps a history of what you copy, from text and links to images and copied
+files. Open the panel with ⇧⌘V, type a few letters to find an item, and press Return to paste it
+where you were working.
+
+- **The preview shows exactly what will be pasted.** You see every line, the full image and every file, plus the
+  formats that will go to the other app. Invisible and direction-changing characters appear as `⟨U+202E⟩`,
+  so you can spot a file that looks like `invoice_ppa.pdf` but is really `invoice_‮fdp.app`.
+- **Secrets stay hidden.** Items that password managers mark as concealed are never saved. Text that looks
+  like an API key or password is masked until you click **Reveal**, and removed after an hour by default.
+- **Your history stays on your Mac.** It is encrypted with a key kept in your Keychain. There is no account or
+  tracking, and the app contains no networking code.
+- **Keyboard first.** Search as you type, move with the arrow keys, press Return to paste, or press ⌘1–⌘9 to
+  choose one of the first nine items. Pin items you reuse.
 
 <p align="center">
-  <img src="docs/images/panel-dark.png" width="360" alt="Clipboard panel in dark mode">
-  <img src="docs/images/panel-sensitive.png" width="360" alt="A sensitive item stays hidden until you choose Reveal">
+  <img src="docs/images/panel-light.png" width="720" alt="The Clipboard panel: search field, filters, the history list on the left and a preview of the selected item on the right">
 </p>
-
-- **What you see is what you paste.** The preview shows the full item — every line, the image, every file — and
-  names each format that will be pasted. Invisible or direction-changing characters are shown, not hidden.
-
-## Requirements
-
-- macOS 14 Sonoma or later (Apple silicon or Intel).
-- To build: Xcode 26 or later (the macOS 26 SDK provides Liquid Glass; the app still runs on macOS 14+) and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`).
+<p align="center">
+  <img src="docs/images/panel-dark.png" width="360" alt="The panel in dark mode">
+  <img src="docs/images/panel-sensitive.png" width="360" alt="A sensitive item is hidden until you click Reveal">
+</p>
 
 ## Install
 
-### From a release
+There are no prebuilt downloads yet, so you need to build the app from source on a Mac running macOS 14 Sonoma
+or later.
 
-1. Download `Clipboard-<version>.zip` from GitHub Releases and check it against the `.sha256` file:
-   `shasum -a 256 Clipboard-<version>.zip`
-2. Unzip and move **Clipboard.app** to `/Applications`.
-3. Release builds are ad-hoc signed unless the release notes say they are notarized. macOS will refuse to
-   open an un-notarized app the first time: open **System Settings › Privacy & Security** and click
-   **Open Anyway** next to the Clipboard message (or run `xattr -dr com.apple.quarantine /Applications/Clipboard.app`).
+### 1. Install the tools
 
-### Build from source
+1. Install **Xcode 26 or later** from the [Mac App Store](https://apps.apple.com/app/xcode/id497799835).
+   Open it once and let it finish installing its components. The Command Line Tools alone are not enough.
+2. Make sure the command line uses that Xcode:
+
+   ```bash
+   xcode-select -p
+   ```
+
+   It should print a path inside `/Applications/Xcode.app`. If it prints `/Library/Developer/CommandLineTools`
+   instead, switch it (this asks for your password):
+
+   ```bash
+   sudo xcode-select -s /Applications/Xcode.app
+   ```
+
+3. Install [Homebrew](https://brew.sh) if you don't have it, then install XcodeGen, which generates the
+   Xcode project:
+
+   ```bash
+   brew install xcodegen
+   ```
+
+### 2. Build the app
 
 ```bash
-git clone <this repository> Clipboard && cd Clipboard
-brew install xcodegen
-make app          # builds build/Clipboard.app (Release)
-make run          # builds and opens it
+git clone https://github.com/ChakriOriginals/Clipboard.git
+cd Clipboard
+make app
 ```
 
-`make test` runs the core tests, the app tests and the privacy checks. `make generate` creates
-`Clipboard.xcodeproj` if you prefer to work in Xcode (the project file is generated, not committed).
+When the build finishes, you'll see `Built build/Clipboard.app`.
 
-Builds are ad-hoc signed, so no Apple Developer account is needed. Each rebuild changes the signature, which
-means macOS forgets the Accessibility permission and the Keychain may ask again. To avoid that, create an
-untracked `Config/Local.xcconfig` with a free Apple ID “Personal Team”:
+### 3. Move it to Applications and open it
+
+```bash
+cp -R build/Clipboard.app /Applications/
+open /Applications/Clipboard.app
+```
+
+Clipboard has no Dock icon. Look for its clipboard icon in the menu bar. A welcome window explains the two
+permissions below.
+
+### 4. Allow access
+
+| Permission | Where | Why |
+|---|---|---|
+| **Paste** (macOS 15.4 and later) | When macOS asks, choose **Always Allow**. To change it later: **System Settings › Privacy & Security › Paste**. | Clipboard reads the clipboard each time you copy. If macOS is set to ask every time, Clipboard stops recording instead of prompting on each copy. |
+| **Keychain** | If macOS asks whether Clipboard may use its key, choose **Always Allow**. | The key that encrypts your history lives in your login Keychain. If you deny it, history stays locked until you allow it. |
+| **Accessibility** (optional) | **System Settings › Privacy & Security › Accessibility**, then turn on **Clipboard**. | Lets Clipboard press ⌘V for you, so choosing an item pastes it. Without it, choosing an item copies it and you press ⌘V yourself. |
+
+Clipboard never asks for Full Disk Access, Screen Recording, Input Monitoring or network access.
+
+To start Clipboard automatically, turn on **Launch Clipboard at login** in **Settings › General** (menu bar icon
+› Settings…).
+
+### Coming from ClipFlow?
+
+Clipboard used to be called ClipFlow. Quit ClipFlow first (menu bar icon › Quit), because only one copy of the
+app can run at a time. Then install Clipboard as above and delete `ClipFlow.app`. Your history and
+settings carry over: on first launch the data folder moves from `~/Library/Application Support/ClipFlow` to
+`~/Library/Application Support/Clipboard`.
+
+### Updating
+
+```bash
+cd Clipboard
+git pull
+make app
+cp -R build/Clipboard.app /Applications/
+```
+
+Quit Clipboard before copying the new version over the old one. Builds made on your Mac are signed locally,
+and each new build has a different signature. macOS may therefore ask for Keychain access again, and you may
+need to turn Accessibility off and on for Clipboard. To avoid this, sign with a free Apple ID: create
+`Config/Local.xcconfig` (it is not committed) containing your team ID from Xcode › Settings › Accounts:
 
 ```
 DEVELOPMENT_TEAM = ABCDE12345
 CODE_SIGN_IDENTITY = Apple Development
 ```
 
-## Permissions
+### Uninstalling
 
-| Permission | Why | Without it |
-|---|---|---|
-| **Paste** (System Settings › Privacy & Security › Paste) — choose **Always Allow** | macOS 15.4+ asks before an app reads the clipboard. Clipboard reads it each time you copy. | Clipboard can’t record history. If macOS is set to ask every time, Clipboard stops reading rather than prompting on each copy. |
-| **Accessibility** (optional) | Sends ⌘V to the app you were using, so choosing an item pastes it. | Choosing an item copies it; you press ⌘V yourself. |
+1. Turn off **Launch Clipboard at login**, then choose **Quit Clipboard** from the menu bar icon.
+2. Delete `/Applications/Clipboard.app`.
+3. To remove your history, its encryption key and your settings as well:
 
-Clipboard never asks for Full Disk Access, Screen Recording, Input Monitoring, or network access.
+   ```bash
+   rm -rf ~/Library/Application\ Support/Clipboard
+   security delete-generic-password -s dev.clipflow.ClipFlow.history-key
+   defaults delete dev.clipflow.ClipFlow
+   ```
 
-## Keyboard shortcuts
+### Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `xcodebuild requires Xcode, but active developer directory … is a command line tools instance` | Run `sudo xcode-select -s /Applications/Xcode.app` (step 1). |
+| `xcodegen: command not found` | Run `brew install xcodegen`. |
+| A build error mentions `NSGlassEffectView` | Your Xcode is older than 26. Update it from the App Store. |
+| Clipboard quits right after opening | Another copy is running, usually an old ClipFlow or an earlier build. Quit it from its menu bar icon and open Clipboard again. |
+| Nothing is recorded | Check **System Settings › Privacy & Security › Paste** and choose **Always Allow** for Clipboard. If the menu shows **Resume Monitoring**, choose it. |
+| Return copies but doesn't paste | Turn on Accessibility for Clipboard. After a rebuild, turn it off and on again. |
+| The panel says history is locked | Clipboard couldn't read its Keychain key. Click **Try Again** and choose **Always Allow**. |
+
+## Using Clipboard
 
 | Where | Keys | Action |
 |---|---|---|
-| Anywhere | ⇧⌘V (configurable) | Open or close the history panel |
+| Anywhere | ⇧⌘V (you can change it) | Open or close the history panel |
 | Panel | type | Search |
-| Panel | move the pointer | Select the row under it (the preview follows) |
-| Panel | ↑ ↓ | Move selection |
-| Panel | ↩ | Paste (or copy, if automatic paste is off) |
+| Panel | ↑ ↓, or move the pointer | Select an item (the preview follows) |
+| Panel | ↩ | Paste the item (or copy it, if automatic paste is off) |
 | Panel | ⇧↩ | Copy without pasting |
 | Panel | ⌘1 … ⌘9 | Choose one of the first nine items |
 | Panel | ⌘P | Pin or unpin |
 | Panel | ⌘⌫ | Delete |
 | Panel | esc | Close |
 
-⇧⌘V is “paste as plain text” in some apps (Chrome, Slack, VS Code). While Clipboard runs, the shortcut opens
-Clipboard instead; pick another in **Settings › Shortcuts** if you rely on it. Shortcuts must include ⌘ or ⌃.
+Some apps (Chrome, Slack and VS Code among them) use ⇧⌘V for "paste as plain text". While Clipboard runs, the
+shortcut opens Clipboard instead. If you rely on it, pick another shortcut in **Settings › Shortcuts**.
 
-## Privacy model
+In **Settings** you can also choose how long items are kept (30 days by default, up to 10,000 items), what
+happens to possible secrets, which apps to ignore, and whether to record images and file references. Pinned
+items are never removed automatically.
 
-- History lives in `~/Library/Application Support/Clipboard/history.sqlite` (moved there automatically from the
-  pre-rename `ClipFlow` folder) (folder readable only by you,
-  excluded from Time Machine).
-- Every entry’s content, preview, thumbnail and source app are encrypted with AES-256-GCM. The key is a random
-  256-bit key in your login Keychain. Timestamps, kind (text/link/image…), size and pin status are stored
-  unencrypted so history can be sorted and cleaned up without decrypting it.
-- **Clear Everything** deletes the database *and* the key. Deleted data can’t be recovered — by you either.
-- There is no recovery if the Keychain item is lost. That is deliberate.
-- Clipboard does not protect against malware already running as your user: such software can read the live
-  clipboard and your unlocked Keychain directly.
+## Privacy and security
 
-Details: [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md) and [PRIVACY.md](PRIVACY.md).
+- History is stored in `~/Library/Application Support/Clipboard/history.sqlite`. The folder is readable only by
+  you and excluded from Time Machine.
+- Each item's content, preview, thumbnail and source app are encrypted with AES-256-GCM using a random 256-bit
+  key in your login Keychain. Timestamps, item kind, size and pin status are stored unencrypted so history can
+  be sorted and cleaned up without decrypting it.
+- **Clear Everything** (menu bar icon › Clear History…) deletes the database and the key, so Clipboard cannot
+  restore the old history. If the Keychain item is lost, the history can't be recovered either.
+- Restored secrets are marked so other clipboard tools skip them, and they stay on this Mac instead of syncing
+  to your other devices through Universal Clipboard.
+- Clipboard can't protect you from malware already running as your user. Such software can read the live
+  clipboard directly, and your Keychain while you're logged in.
 
-## Known limitations
+The full threat model is in [docs/SECURITY_MODEL.md](docs/SECURITY_MODEL.md), with security audit reports in
+[docs/security-audit](docs/security-audit/README.md) and data handling in [PRIVACY.md](PRIVACY.md).
+
+## Limitations
 
 - Only copies made while Clipboard is running are recorded.
-- “Ignore copies made in these apps” uses the app in front at the time of the copy. macOS doesn’t say which app
-  wrote to the clipboard, so this is best-effort.
-- Secret detection is a heuristic. It will miss some secrets and flag some harmless text.
-- Some apps enable Secure Input (password fields, Terminal’s Secure Keyboard Entry); whether the global shortcut
-  still works then has not been verified yet. The menu bar icon always works.
-- Text over 2 MB, images over 10 MB (as PNG) and more than 1,000 files in one copy are skipped.
+- "Ignore copies made in these apps" uses the app that was in front during the copy. macOS doesn't say which
+  app wrote to the clipboard, so this is best effort.
+- Secret detection is a heuristic. It misses some secrets and flags some harmless text.
+- It hasn't been tested whether the global shortcut works while an app uses Secure Input (password fields, or
+  Terminal's Secure Keyboard Entry). The menu bar icon always works.
+- A single copy is skipped if it holds more than 2 MB of text, an image over 10 MB as PNG or more than
+  1,000 files. Unpinned history is limited to 2 GB in total, and the oldest items go first.
 
 ## Roadmap
 
-- **Now (0.1):** macOS app — capture, encrypted history, search and filters, pinning, retention, privacy controls.
-- **Next:** import/export (encrypted), per-item preview pane, more file-type previews.
-- **Later:** iPhone and iPad companion with end-to-end-encrypted iCloud sync (opt-in). iOS doesn’t allow
+- **Now:** the macOS app described above.
+- **Next:** signed and notarized downloads on the Releases page, and encrypted import and export.
+- **Later:** an iPhone and iPad companion with opt-in, end-to-end encrypted iCloud sync. iOS doesn't allow
   background clipboard monitoring, so the phone app will capture on request. See
   [docs/ARCHITECTURE.md §9](docs/ARCHITECTURE.md).
 
-## Contributing
+## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Security issues: see [SECURITY.md](SECURITY.md) — please don’t open
-public issues for vulnerabilities.
+```bash
+make test        # core tests, app tests and privacy checks
+make generate    # creates Clipboard.xcodeproj to work in Xcode (the project file isn't committed)
+make run         # builds the Release app and opens it
+```
+
+The app is split into `Packages/ClipboardCore` (storage, encryption, capture rules and search, with no AppKit)
+and the `Clipboard` app target (menu bar, panel, settings). Start with
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and see [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull
+request. Please report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
