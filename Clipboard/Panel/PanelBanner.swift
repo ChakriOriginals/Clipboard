@@ -1,27 +1,33 @@
 import AppKit
 import SwiftUI
 
-/// One-line notices for states that stop Clipboard from working normally.
+/// One quiet line for states that stop Clipboard from working normally. Color marks the symbol only.
 struct PanelBanner: View {
-    let app: AppController
+    let model: HistoryModel
+    let settings: SettingsStore
     let accessState: PasteAccessState
+    let dataDirectory: URL
+    let actions: PanelActions
 
     var body: some View {
         if let notice {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: notice.icon)
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.orange)
                     .accessibilityHidden(true)
                 Text(notice.message)
-                    .font(.callout)
+                    .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
-                Spacer()
+                Spacer(minLength: 8)
                 Button(notice.actionTitle, action: notice.action)
                     .controlSize(.small)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(Color.orange.opacity(0.12))
+            .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
             .accessibilityElement(children: .combine)
         }
     }
@@ -34,35 +40,34 @@ struct PanelBanner: View {
     }
 
     private var notice: Notice? {
-        switch app.model.status {
+        switch model.status {
         case .locked:
             return Notice(icon: "lock", message: "History is locked because Keychain access was denied.",
-                          actionTitle: "Retry") { Task { await app.model.load() } }
+                          actionTitle: "Try Again") { Task { await model.load() } }
         case .recovered(let url):
             return Notice(icon: "exclamationmark.triangle",
-                          message: "Previous history couldn’t be opened with this Mac’s key and was set aside. Clear Everything deletes it.",
+                          message: "Earlier history couldn’t be opened with this Mac’s key and was set aside. Clear Everything deletes it.",
                           actionTitle: "Show File") {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-                app.model.acknowledgeRecovery()
+                actions.revealInFinder(url)
+                model.acknowledgeRecovery()
             }
         case .newerVersion:
-            return Notice(icon: "arrow.up.circle", message: "This history was saved by a newer version of Clipboard. Update Clipboard to use it; nothing has been changed.",
-                          actionTitle: "Show File") {
-                NSWorkspace.shared.activateFileViewerSelecting([app.dataDirectory])
-            }
+            return Notice(icon: "arrow.up.circle",
+                          message: "This history was saved by a newer version of Clipboard. Nothing has been changed.",
+                          actionTitle: "Show Folder") { actions.revealInFinder(dataDirectory) }
         case .failed:
             return Notice(icon: "exclamationmark.triangle", message: "History couldn’t be opened.",
-                          actionTitle: "Retry") { Task { await app.model.load() } }
+                          actionTitle: "Try Again") { Task { await model.load() } }
         case .ready, .loading:
             break
         }
         if accessState == .needsAlwaysAllow || accessState == .denied {
-            return Notice(icon: "hand.raised", message: "macOS is blocking clipboard access. Allow paste access for Clipboard in System Settings.",
-                          actionTitle: "Open Settings") { AppController.openSystemSettings("Privacy_Paste") }
+            return Notice(icon: "hand.raised", message: "macOS is blocking clipboard access. Allow Paste access for Clipboard.",
+                          actionTitle: "Open Settings") { actions.openPrivacySettings("Privacy_Paste") }
         }
-        if app.settings.isPaused {
+        if settings.isPaused {
             return Notice(icon: "pause.circle", message: "Monitoring is paused. New copies aren’t saved.",
-                          actionTitle: "Resume") { app.setPaused(false) }
+                          actionTitle: "Resume") { actions.setPaused(false) }
         }
         return nil
     }

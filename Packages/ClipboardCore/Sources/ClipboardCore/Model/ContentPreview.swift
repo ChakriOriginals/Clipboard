@@ -13,7 +13,7 @@ public struct ContentPreview: Equatable, Sendable {
     public let flavors: [String]
     public let itemCount: Int
 
-    public static let maxCharacters = 100_000
+    public static let maxCharacters = 10_000
 
     private static let flavorNames: [(type: String, name: String)] = [
         (PasteboardType.plainText, "Plain Text"), (PasteboardType.rtf, "Rich Text"), (PasteboardType.html, "HTML"),

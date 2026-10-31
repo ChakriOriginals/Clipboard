@@ -6,7 +6,7 @@ final class ClipboardPanel: NSPanel {
     var onResignKey: (() -> Void)?
 
     init(contentRect: NSRect) {
-        super.init(contentRect: contentRect, styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView, .resizable],
+        super.init(contentRect: contentRect, styleMask: [.nonactivatingPanel, .titled, .fullSizeContentView],
                    backing: .buffered, defer: true)
         titleVisibility = .hidden
         titlebarAppearsTransparent = true
@@ -21,7 +21,7 @@ final class ClipboardPanel: NSPanel {
         backgroundColor = .clear
         isOpaque = false
         hasShadow = true
-        minSize = NSSize(width: 420, height: 300)
+        acceptsMouseMovedEvents = true
         setAccessibilityLabel("Clipboard history")
     }
 

@@ -97,6 +97,14 @@ final class AppController {
         AutoPaster.requestTrust()
     }
 
+    var panelActions: PanelActions {
+        PanelActions(
+            choose: { [weak self] id, paste in self?.choose(id, paste: paste) },
+            setPaused: { [weak self] paused in self?.setPaused(paused) },
+            revealInFinder: { url in NSWorkspace.shared.activateFileViewerSelecting([url]) },
+            openPrivacySettings: { anchor in AppController.openSystemSettings(anchor) })
+    }
+
     // MARK: Hotkey
 
     @discardableResult

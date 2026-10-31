@@ -3,11 +3,16 @@ import ClipboardCore
 import SwiftUI
 
 struct ClipRowView: View {
-    let app: AppController
+    let model: HistoryModel
+    let settings: SettingsStore
+    let focus: PanelFocus
+    let actions: PanelActions
     let item: ClipItem
     let index: Int
     let isSelected: Bool
+    let selectionSpace: Namespace.ID
     @State private var thumbnail: NSImage?
+    @State private var hovering = false
 
     private static let relative: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
@@ -18,65 +23,82 @@ struct ClipRowView: View {
     var body: some View {
         HStack(spacing: 10) {
             leading
-                .frame(width: 36, height: 36)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(item.displayPreview)
-                    .font(item.kind == .code ? .system(.body, design: .monospaced) : .body)
+                    .font(item.kind == .code && !item.isSensitive ? .system(size: 12, design: .monospaced) : .body)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .italic(item.isSensitive)
+                    .foregroundStyle(item.isSensitive ? .secondary : .primary)
                 Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.secondary))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 4)
             if item.isPinned {
                 Image(systemName: "pin.fill")
-                    .font(.caption)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
             }
             if index < 9 {
                 Text("⌘\(index + 1)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white.opacity(0.85)) : AnyShapeStyle(.tertiary))
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-        .background(isSelected ? Color.accentColor : Color.clear, in: RoundedRectangle(cornerRadius: 7))
-        .contentShape(Rectangle())
-        .onTapGesture { app.choose(item.id, paste: app.settings.pasteOnSelect) }
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous)
+                    .fill(Theme.selectionFill)
+                    .matchedGeometryEffect(id: "selection", in: selectionSpace)
+            } else if hovering {
+                RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous).fill(Theme.hoverFill)
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: Theme.rowRadius, style: .continuous))
+        .onHover { inside in
+            hovering = inside
+            // The preview follows the pointer, but only once the mouse has actually moved, so
+            // keyboard navigation isn't hijacked when the list scrolls under a resting cursor.
+            if inside, focus.pointerActive { model.selectedID = item.id }
+        }
+        .onTapGesture { actions.choose(item.id, settings.pasteOnSelect) }
         .contextMenu { menu }
         .task(id: item.id) {
-            if item.hasThumbnail, app.settings.showThumbnails, !item.isSensitive {
-                thumbnail = await app.model.thumbnail(for: item.id)
+            if item.hasThumbnail, settings.showThumbnails, !item.isSensitive {
+                thumbnail = await model.thumbnail(for: item.id)
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(item.kind.label), \(item.displayPreview)")
         .accessibilityValue(subtitle + (item.isPinned ? ", pinned" : ""))
         .accessibilityAddTraits(isSelected ? [.isSelected, .isButton] : .isButton)
-        .accessibilityAction { app.choose(item.id, paste: app.settings.pasteOnSelect) }
-        .accessibilityAction(named: item.isPinned ? "Unpin" : "Pin") { Task { await app.model.togglePin(item.id) } }
-        .accessibilityAction(named: "Delete") { Task { await app.model.delete(item.id) } }
+        .accessibilityAction { actions.choose(item.id, settings.pasteOnSelect) }
+        .accessibilityAction(named: item.isPinned ? "Unpin" : "Pin") { Task { await model.togglePin(item.id) } }
+        .accessibilityAction(named: "Delete") { Task { await model.delete(item.id) } }
     }
 
     @ViewBuilder
     private var leading: some View {
-        if let thumbnail, !item.isSensitive {
-            Image(nsImage: thumbnail)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-        } else {
-            Image(systemName: item.isSensitive ? "lock.fill" : item.kind.systemImage)
-                .font(.system(size: 16))
-                .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+        ZStack {
+            RoundedRectangle(cornerRadius: Theme.tileRadius, style: .continuous).fill(.quaternary)
+            if let thumbnail, !item.isSensitive {
+                Image(nsImage: thumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 28, height: 28)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.tileRadius, style: .continuous))
+            } else {
+                Image(systemName: item.isSensitive ? "lock.fill" : item.kind.systemImage)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
         }
+        .frame(width: 28, height: 28)
     }
 
     private var subtitle: String {
@@ -87,18 +109,19 @@ struct ClipRowView: View {
 
     @ViewBuilder
     private var menu: some View {
-        Button("Paste") { app.choose(item.id, paste: true) }
-        Button("Copy") { app.choose(item.id, paste: false) }
-        if item.kind == .url, !item.isSensitive, !item.summary.previewText.hasSuffix("…"), let url = ContentClassifier.openableURL(item.summary.previewText) {
+        Button("Paste") { actions.choose(item.id, true) }
+        Button("Copy") { actions.choose(item.id, false) }
+        if item.kind == .url, !item.isSensitive, !item.summary.previewText.hasSuffix("…"),
+           let url = ContentClassifier.openableURL(item.summary.previewText) {
             Button("Open in Browser") { NSWorkspace.shared.open(url) }
         }
         Divider()
-        Button(item.isPinned ? "Unpin" : "Pin") { Task { await app.model.togglePin(item.id) } }
+        Button(item.isPinned ? "Unpin" : "Pin") { Task { await model.togglePin(item.id) } }
         Button(item.isSensitive ? "Mark as Not Sensitive" : "Mark as Sensitive") {
-            Task { await app.model.toggleSensitive(item.id) }
+            Task { await model.toggleSensitive(item.id) }
         }
         Divider()
-        Button("Delete", role: .destructive) { Task { await app.model.delete(item.id) } }
+        Button("Delete", role: .destructive) { Task { await model.delete(item.id) } }
     }
 }
 
@@ -117,7 +140,7 @@ extension ClipKind {
     var label: String {
         switch self {
         case .text: "Text"
-        case .richText: "Rich text"
+        case .richText: "Rich Text"
         case .url: "Link"
         case .code: "Code"
         case .image: "Image"

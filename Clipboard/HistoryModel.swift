@@ -217,6 +217,14 @@ final class HistoryModel {
         }
     }
 
+    /// Decrypts an entry to show exactly what pasting it would deliver. Nil for missing or expired items.
+    func preview(for id: UUID) async -> ContentPreview? {
+        guard let item = items.first(where: { $0.id == id }), !isExpired(item),
+              let content = try? await store.content(id: id)
+        else { return nil }
+        return await Task.detached(priority: .userInitiated) { ContentPreview.make(from: content) }.value
+    }
+
     func thumbnail(for id: UUID) async -> NSImage? {
         if let cached = thumbnails.object(forKey: id as NSUUID) { return cached }
         guard let data = try? await store.thumbnail(id: id), let image = NSImage(data: data) else { return nil }

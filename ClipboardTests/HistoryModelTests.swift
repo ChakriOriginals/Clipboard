@@ -299,6 +299,25 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertTrue(model.items.isEmpty)
         XCTAssertEqual(model.status, .failed)
     }
+
+    func testPreviewShowsFullMultilineContent() async {
+        let model = await makeModel()
+        await ingest(model, "line one\nline two")
+        let preview = await model.preview(for: model.results[0].id)
+        XCTAssertEqual(preview?.text, "line one\nline two")
+        XCTAssertEqual(preview?.lineCount, 2)
+        XCTAssertEqual(preview?.flavors, ["Plain Text"])
+    }
+
+    func testPreviewOfExpiredItemIsUnavailable() async {
+        settings.sensitiveExpiryMinutes = 10
+        let model = await makeModel()
+        await ingest(model, "password = hunter2")
+        let id = model.results[0].id
+        clock += 11 * 60
+        let preview = await model.preview(for: id)
+        XCTAssertNil(preview)
+    }
 }
 
 struct LockedKeyStore: KeyStore {

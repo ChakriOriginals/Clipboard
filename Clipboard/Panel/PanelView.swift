@@ -1,87 +1,121 @@
 import ClipboardCore
 import SwiftUI
 
+/// What the panel can ask the app to do.
+struct PanelActions {
+    var choose: @MainActor (UUID, Bool) -> Void
+    var setPaused: @MainActor (Bool) -> Void
+    var revealInFinder: @MainActor (URL) -> Void
+    var openPrivacySettings: @MainActor (String) -> Void
+}
+
+/// The history panel: search and filters on top, list on the left, exact preview on the right.
 struct PanelView: View {
-    let app: AppController
+    let model: HistoryModel
+    let settings: SettingsStore
     let focus: PanelFocus
     let accessState: PasteAccessState
+    let dataDirectory: URL
+    let actions: PanelActions
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var model: HistoryModel { app.model }
+    @Namespace private var selectionSpace
 
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            searchBar(text: $model.query.text)
-            filterBar
+            header(text: $model.query.text, kind: $model.query.kind, date: $model.query.date)
+            PanelBanner(model: model, settings: settings, accessState: accessState, dataDirectory: dataDirectory, actions: actions)
             Divider()
-            PanelBanner(app: app, accessState: accessState)
             if model.results.isEmpty {
                 emptyState
             } else {
-                list
+                HStack(spacing: 0) {
+                    listColumn
+                        .frame(width: Theme.listWidth)
+                    Divider()
+                    PreviewPane(model: model, settings: settings, item: model.selectedItem)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
             Divider()
             footer
         }
-        .frame(minWidth: 420, minHeight: 300)
+        .frame(width: Theme.panelSize.width, height: Theme.panelSize.height)
         .onChange(of: focus.token, initial: true) { searchFocused = true }
     }
 
-    private func searchBar(text: Binding<String>) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-            TextField("Search clipboard history", text: text)
-                .textFieldStyle(.plain)
-                .font(.title3)
-                .focused($searchFocused)
-                .accessibilityLabel("Search clipboard history")
+    // MARK: Header
+
+    private func header(text: Binding<String>, kind: Binding<KindFilter>, date: Binding<DateFilter>) -> some View {
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+                TextField("Search Clipboard", text: text)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 17))
+                    .focused($searchFocused)
+                    .accessibilityLabel("Search clipboard history")
+                if !text.wrappedValue.isEmpty {
+                    Button { text.wrappedValue = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            HStack(spacing: 4) {
+                ForEach(KindFilter.allCases, id: \.self) { filter in
+                    FilterChip(title: filter.title, isOn: kind.wrappedValue == filter) { kind.wrappedValue = filter }
+                }
+                Spacer(minLength: 8)
+                Picker("Date", selection: date) {
+                    ForEach(DateFilter.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .menuStyle(.borderlessButton)
+                .controlSize(.small)
+                .fixedSize()
+                .accessibilityLabel("Date filter")
+            }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.top, 14)
+        .padding(.bottom, 10)
     }
 
-    private var filterBar: some View {
-        @Bindable var model = model
-        return HStack(spacing: 6) {
-            ForEach(KindFilter.allCases, id: \.self) { kind in
-                FilterChip(title: kind.title, systemImage: kind.systemImage, isOn: model.query.kind == kind) {
-                    model.query.kind = kind
-                }
-            }
-            Spacer(minLength: 8)
-            Picker("Date", selection: $model.query.date) {
-                ForEach(DateFilter.allCases, id: \.self) { Text($0.title).tag($0) }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize()
-            .accessibilityLabel("Date filter")
+    // MARK: List
+
+    private var emptyState: some View {
+        ContentUnavailableView {
+            Label(model.items.isEmpty ? "Nothing Copied Yet" : "No Matches",
+                  systemImage: model.items.isEmpty ? "clipboard" : "magnifyingglass")
+        } description: {
+            Text(model.items.isEmpty ? "Copy something in any app and it appears here."
+                                     : "Try a different search or filter.")
         }
-        .padding(.horizontal, 12)
-        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var list: some View {
+    private var listColumn: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    section("Pinned", model.pinnedResults, offset: 0)
-                    section("Recent", model.recentResults, offset: model.pinnedResults.count)
-                }
-                .padding(8)
-            }
-            .onChange(of: model.selectedID) { _, id in
-                guard let id else { return }
-                if reduceMotion {
-                    proxy.scrollTo(id)
-                } else {
-                    withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(id) }
-                }
-            }
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 1) {
+                            section("Pinned", model.pinnedResults, offset: 0)
+                            section("Recent", model.recentResults, offset: model.pinnedResults.count)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .animation(reduceMotion ? nil : Theme.motion(reduceMotion: false), value: model.selectedID)
+                    }
+                    .scrollIndicators(.automatic)
+                    .onChange(of: model.selectedID) { _, id in
+                        if let id { proxy.scrollTo(id) }
+                    }
         }
     }
 
@@ -89,77 +123,55 @@ struct PanelView: View {
     private func section(_ title: String, _ items: [ClipItem], offset: Int) -> some View {
         if !items.isEmpty {
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
-                .padding(.top, 6)
+                .padding(.top, offset == 0 ? 2 : 10)
+                .padding(.bottom, 2)
                 .accessibilityAddTraits(.isHeader)
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                ClipRowView(app: app, item: item, index: offset + index, isSelected: item.id == model.selectedID)
+                ClipRowView(model: model, settings: settings, focus: focus, actions: actions, item: item,
+                            index: offset + index, isSelected: item.id == model.selectedID, selectionSpace: selectionSpace)
                     .id(item.id)
             }
         }
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: model.items.isEmpty ? "clipboard" : "magnifyingglass")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(.secondary)
-            Text(model.items.isEmpty ? "Nothing copied yet" : "No matches")
-                .font(.headline)
-            Text(model.items.isEmpty ? "Copy something in any app and it will appear here."
-                                     : "Try a different search or filter.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
-        .accessibilityElement(children: .combine)
-    }
+    // MARK: Footer
 
     private var footer: some View {
-        HStack(spacing: 14) {
-            hint("↩", app.settings.pasteOnSelect ? "Paste" : "Copy")
-            hint("⇧↩", "Copy")
-            hint("⌘P", "Pin")
-            hint("⌘⌫", "Delete")
+        HStack(spacing: 16) {
+            KeyHint(key: "↩", label: settings.pasteOnSelect ? "Paste" : "Copy")
+            KeyHint(key: "⇧↩", label: "Copy")
+            KeyHint(key: "⌘P", label: "Pin")
+            KeyHint(key: "⌘⌫", label: "Delete")
             Spacer()
-            hint("esc", "Close")
+            KeyHint(key: "esc", label: "Close")
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 7)
-        .accessibilityElement(children: .combine)
-    }
-
-    private func hint(_ key: String, _ label: String) -> some View {
-        HStack(spacing: 4) {
-            Text(key).fontWeight(.semibold)
-            Text(label)
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
     }
 }
 
+/// A filter choice. The accent marks the active filter only; everything else stays monochrome.
 private struct FilterChip: View {
     let title: String
-    let systemImage: String
     let isOn: Bool
     let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .labelStyle(.titleAndIcon)
-                .font(.caption)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(isOn ? Color.accentColor.opacity(0.2) : Color.clear, in: Capsule())
-                .overlay(Capsule().strokeBorder(isOn ? Color.accentColor : Color.secondary.opacity(0.35)))
+            Text(title)
+                .font(.subheadline.weight(isOn ? .semibold : .regular))
+                .foregroundStyle(isOn ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                .padding(.horizontal, 10)
+                .frame(height: 24)
+                .background(isOn ? Theme.selectionFill : (hovering ? Theme.hoverFill : .clear), in: Capsule())
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .onHover { hovering = $0 }
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
@@ -176,27 +188,15 @@ extension KindFilter {
         case .files: "Files"
         }
     }
-
-    var systemImage: String {
-        switch self {
-        case .all: "square.stack"
-        case .pinned: "pin"
-        case .text: "text.alignleft"
-        case .urls: "link"
-        case .code: "chevron.left.forwardslash.chevron.right"
-        case .images: "photo"
-        case .files: "doc"
-        }
-    }
 }
 
 extension DateFilter {
     var title: String {
         switch self {
-        case .any: "Any time"
+        case .any: "Any Time"
         case .today: "Today"
-        case .last7Days: "Last 7 days"
-        case .last30Days: "Last 30 days"
+        case .last7Days: "Last 7 Days"
+        case .last30Days: "Last 30 Days"
         }
     }
 }
