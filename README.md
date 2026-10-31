@@ -79,31 +79,6 @@ open /Applications/Clipboard.app
 Clipboard has no Dock icon. Look for its clipboard icon in the menu bar. A welcome window explains the two
 permissions below.
 
-### 4. Allow access
-
-| Permission | Where | Why |
-|---|---|---|
-| **Paste** (macOS 15.4 and later) | When macOS asks, choose **Always Allow**. To change it later: **System Settings › Privacy & Security › Paste**. | Clipboard reads the clipboard each time you copy. If macOS is set to ask every time, Clipboard stops recording instead of prompting on each copy. |
-| **Keychain** | If macOS asks whether Clipboard may use its key, choose **Always Allow**. | The key that encrypts your history lives in your login Keychain. If you deny it, history stays locked until you allow it. |
-| **Accessibility** (optional) | **System Settings › Privacy & Security › Accessibility**, then turn on **Clipboard**. | Lets Clipboard press ⌘V for you, so choosing an item pastes it. Without it, choosing an item copies it and you press ⌘V yourself. |
-
-Clipboard never asks for Full Disk Access, Screen Recording, Input Monitoring or network access.
-
-To start Clipboard automatically, turn on **Launch Clipboard at login** in **Settings › General** (menu bar icon
-› Settings…).
-
-### Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| `xcodebuild requires Xcode, but active developer directory … is a command line tools instance` | Run `sudo xcode-select -s /Applications/Xcode.app` (step 1). |
-| `xcodegen: command not found` | Run `brew install xcodegen`. |
-| A build error mentions `NSGlassEffectView` | Your Xcode is older than 26. Update it from the App Store. |
-| Clipboard quits right after opening | Another copy is running, usually an old ClipFlow or an earlier build. Quit it from its menu bar icon and open Clipboard again. |
-| Nothing is recorded | Check **System Settings › Privacy & Security › Paste** and choose **Always Allow** for Clipboard. If the menu shows **Resume Monitoring**, choose it. |
-| Return copies but doesn't paste | Turn on Accessibility for Clipboard. After a rebuild, turn it off and on again. |
-| The panel says history is locked | Clipboard couldn't read its Keychain key. Click **Try Again** and choose **Always Allow**. |
-
 ## Using Clipboard
 
 | Where | Keys | Action |
