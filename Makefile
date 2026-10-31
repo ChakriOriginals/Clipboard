@@ -17,7 +17,7 @@ test-core-release:
 	cd Packages/ClipFlowCore && swift test -c release
 
 test-app: generate
-	$(XCB) -destination 'platform=macOS,arch=$(shell uname -m)' test 2>&1 | grep -E '^(Test Case|Test Suite|Executed|.*error:|[*][*] TEST)' ; exit $${PIPESTATUS[0]}
+	$(XCB) -destination 'platform=macOS,arch=$(shell uname -m)' test 2>&1 | grep -E '(Test Case .*failed|Executed [0-9]+ tests|[*][*] TEST|[.]swift:[0-9]+:.*error:)' ; exit $${PIPESTATUS[0]}
 
 app: generate
 	$(XCB) -configuration Release build

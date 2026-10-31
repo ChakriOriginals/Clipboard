@@ -146,3 +146,19 @@ final class CapturePolicyTests: XCTestCase {
         XCTAssertEqual(d.previewText, "one")
     }
 }
+
+final class CapturePolicyPrecheckTests: XCTestCase {
+    let settings = CaptureSettings(isPaused: false, excludedBundleIDs: ["com.bad"], captureImages: true,
+                                   captureFiles: true, sensitiveHandling: .maskAndExpire)
+
+    func testPrecheckRejectsWithoutReadingData() {
+        var paused = settings
+        paused.isPaused = true
+        XCTAssertEqual(CapturePolicy.precheck(types: [PasteboardType.plainText], frontmostBundleID: nil, settings: paused), .paused)
+        XCTAssertEqual(CapturePolicy.precheck(types: ["org.nspasteboard.ConcealedType", PasteboardType.plainText],
+                                              frontmostBundleID: nil, settings: settings), .concealed)
+        XCTAssertEqual(CapturePolicy.precheck(types: [PasteboardType.plainText], frontmostBundleID: "com.bad", settings: settings), .excludedApp)
+        XCTAssertEqual(CapturePolicy.precheck(types: ["com.adobe.pdf"], frontmostBundleID: nil, settings: settings), .empty)
+        XCTAssertNil(CapturePolicy.precheck(types: [PasteboardType.plainText], frontmostBundleID: "com.ok", settings: settings))
+    }
+}

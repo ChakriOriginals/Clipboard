@@ -20,10 +20,20 @@ public enum CapturePolicy {
 
     private static let textTypes: Set<String> = [PasteboardType.plainText, PasteboardType.rtf, PasteboardType.html, PasteboardType.url]
 
+    /// Checks that need only type names and the frontmost app, so the monitor can skip a change
+    /// without ever reading its content (paused, password-manager markers, excluded app, nothing supported).
+    public static func precheck(types: Set<String>, frontmostBundleID: String?, settings: CaptureSettings) -> SkipReason? {
+        if settings.isPaused { return .paused }
+        if !types.isDisjoint(with: PasteboardType.neverCapture) { return .concealed }
+        if let app = frontmostBundleID, settings.excludedBundleIDs.contains(app) { return .excludedApp }
+        if types.isDisjoint(with: PasteboardType.allowlist) { return .empty }
+        return nil
+    }
+
     public static func decide(_ snapshot: PasteboardSnapshot, settings: CaptureSettings) -> CaptureDecision {
-        if settings.isPaused { return .skip(.paused) }
-        if !snapshot.types.isDisjoint(with: PasteboardType.neverCapture) { return .skip(.concealed) }
-        if let app = snapshot.frontmostBundleID, settings.excludedBundleIDs.contains(app) { return .skip(.excludedApp) }
+        if let reason = precheck(types: snapshot.types, frontmostBundleID: snapshot.frontmostBundleID, settings: settings) {
+            return .skip(reason)
+        }
 
         var items = snapshot.items
             .map { $0.filter { PasteboardType.allowlist.contains($0.type) && !$0.data.isEmpty } }
