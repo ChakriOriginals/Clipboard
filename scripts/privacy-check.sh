@@ -23,6 +23,21 @@ check() {
 
 check "no networking APIs" '(URLSession|NWConnection|NWListener|NWBrowser|CFNetwork|^import Network)'
 check "no print/NSLog/debugPrint" '(^|[^A-Za-z_.])(print|debugPrint|NSLog|dump)\('
-check "no content interpolated into log calls" \
-    '(log|logger|Logger\([^)]*\))\.(debug|info|notice|error|fault|warning|critical|log)\(.*\\\((preview|text|data|content|string|summary|snapshot|item|url|representation)'
+# Every interpolation inside a log call must be one of these non-content shapes.
+log_allowlist='^\\\((ms|purged|corrupt\.count|[a-zA-Z]+Count|String\(describing: type\(of: error\)\))(, (format: \.fixed\(precision: [0-9]\), )?privacy: \.public)?\)$'
+bad_logs=""
+while IFS= read -r line; do
+    file_line="${line%%:*}:$(echo "$line" | cut -d: -f2)"
+    while IFS= read -r interp; do
+        [[ -z "$interp" ]] && continue
+        if ! [[ "$interp" =~ $log_allowlist ]]; then bad_logs+="    $file_line  $interp"$'\n'; fi
+    done < <(echo "$line" | grep -oE '\\\([^()]*(\([^()]*(\([^()]*\))?[^()]*\))?[^()]*\)')
+done < <(grep -rnE --include='*.swift' '(log|logger|Logger\([^)]*\))\.(debug|info|notice|error|fault|warning|critical|log|trace)\(|os_log\(' "${sources[@]}" 2>/dev/null)
+if [[ -n "$bad_logs" ]]; then
+    echo "✗ log interpolations limited to counts, timings and error types"
+    printf "%s" "$bad_logs"
+    status=1
+else
+    echo "✓ log interpolations limited to counts, timings and error types"
+fi
 exit $status
