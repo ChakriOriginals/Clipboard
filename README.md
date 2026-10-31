@@ -10,7 +10,17 @@ Like Windows' Win + V, built natively for the Mac.
 - **Careful with secrets.** Items that password managers mark as concealed are never saved; things that
   look like API keys or passwords are hidden and removed after an hour (configurable).
 
-> Screenshots: _coming with the first release._
+<p align="center">
+  <img src="docs/images/panel-light.png" width="720" alt="Clipboard panel in light mode: search, filters, history list and a preview of exactly what will be pasted">
+</p>
+
+<p align="center">
+  <img src="docs/images/panel-dark.png" width="360" alt="Clipboard panel in dark mode">
+  <img src="docs/images/panel-sensitive.png" width="360" alt="A sensitive item stays hidden until you choose Reveal">
+</p>
+
+- **What you see is what you paste.** The preview shows the full item — every line, the image, every file — and
+  names each format that will be pasted. Invisible or direction-changing characters are shown, not hidden.
 
 ## Requirements
 
@@ -64,6 +74,7 @@ Clipboard never asks for Full Disk Access, Screen Recording, Input Monitoring, o
 |---|---|---|
 | Anywhere | ⇧⌘V (configurable) | Open or close the history panel |
 | Panel | type | Search |
+| Panel | move the pointer | Select the row under it (the preview follows) |
 | Panel | ↑ ↓ | Move selection |
 | Panel | ↩ | Paste (or copy, if automatic paste is off) |
 | Panel | ⇧↩ | Copy without pasting |

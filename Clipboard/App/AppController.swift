@@ -5,7 +5,7 @@ import SwiftUI
 /// Owns the app's long-lived objects and wires them together.
 @MainActor
 final class AppController {
-    let settings = SettingsStore()
+    let settings: SettingsStore
     let model: HistoryModel
     let dataDirectory: URL
     private(set) var hotKeyError: HotKeyError?
@@ -21,11 +21,14 @@ final class AppController {
     /// The app that was frontmost when the panel opened; auto-paste only targets it.
     var pasteTargetPID: pid_t?
 
-    init() {
+    /// The defaults are the real app; tests pass isolated settings, a temp folder and an in-memory key store.
+    init(settings: SettingsStore = SettingsStore(), dataDirectory: URL? = nil, keyStore: KeyStore? = nil) {
+        self.settings = settings
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        dataDirectory = DataLocation.resolve(applicationSupport: support)
+        self.dataDirectory = dataDirectory ?? DataLocation.resolve(applicationSupport: support)
         let bundleID = Bundle.main.bundleIdentifier ?? "dev.clipflow.ClipFlow"
-        let store = ClipStore(directory: dataDirectory, keyStore: KeychainKeyStore(service: "\(bundleID).history-key"),
+        let store = ClipStore(directory: self.dataDirectory,
+                              keyStore: keyStore ?? KeychainKeyStore(service: "\(bundleID).history-key"),
                               deviceID: settings.deviceID)
         model = HistoryModel(store: store, settings: settings)
     }
@@ -141,12 +144,7 @@ final class AppController {
 
     func showSettings() {
         if settingsWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(app: self)))
-            window.title = "Clipboard Settings"
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
-            window.center()
-            settingsWindow = window
+            settingsWindow = SettingsWindow.make(app: self)
         }
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)

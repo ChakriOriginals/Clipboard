@@ -75,4 +75,39 @@ final class PanelSnapshotTests: XCTestCase {
         hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
         try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: path))
     }
+
+    func testRenderSettingsAndOnboarding() async throws {
+        guard let out = ProcessInfo.processInfo.environment["SNAPSHOT_DIR"] else { throw XCTSkip("SNAPSHOT_DIR not set") }
+        let (defaults, suite) = makeTestDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("ClipboardSnapshots-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let app = AppController(settings: SettingsStore(defaults: defaults), dataDirectory: dir, keyStore: InMemoryKeyStore())
+        let window = SettingsWindow.make(app: app)
+        let tabs = try XCTUnwrap(window.contentViewController as? NSTabViewController)
+        for (index, item) in tabs.tabViewItems.enumerated() {
+            tabs.selectedTabViewItemIndex = index
+            try await Task.sleep(for: .milliseconds(300))
+            let view = try XCTUnwrap(item.viewController?.view)
+            print("SETTINGS \(item.label) fitting size: \(view.fittingSize)")
+            try snapshot(view, size: view.fittingSize, to: "\(out)/settings-\(item.label.lowercased()).png")
+        }
+        let onboarding = NSHostingView(rootView: OnboardingView(app: app) {}.background(Color(nsColor: .windowBackgroundColor)))
+        try snapshot(onboarding, size: onboarding.fittingSize, to: "\(out)/onboarding.png")
+    }
+
+    private func snapshot(_ view: NSView, size: NSSize, to path: String) throws {
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: .borderless, backing: .buffered, defer: false)
+        window.appearance = NSAppearance(named: .aqua)
+        let container = NSView(frame: NSRect(origin: .zero, size: size))
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        view.frame = container.bounds
+        container.addSubview(view)
+        window.contentView = container
+        container.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(container.bitmapImageRepForCachingDisplay(in: container.bounds))
+        container.cacheDisplay(in: container.bounds, to: bitmap)
+        try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: path))
+    }
 }

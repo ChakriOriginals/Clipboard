@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Changed
+- New panel design: history list with a live preview of exactly what will be pasted (all lines, images, files,
+  and the formats that will be pasted); Liquid Glass on macOS 26 and later, vibrancy on earlier versions; native
+  toolbar-style Settings window; refined onboarding and About.
+- Previews show invisible and direction-changing characters as ⟨U+…⟩.
 - Renamed from ClipFlow to **Clipboard**. Existing history, settings and permissions carry over: the bundle identifier is unchanged and the data folder moves from `Application Support/ClipFlow` to `Application Support/Clipboard` on first launch.
 
 ## [0.1.0] - 2026-10-30

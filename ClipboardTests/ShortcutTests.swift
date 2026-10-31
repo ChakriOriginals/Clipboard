@@ -45,4 +45,9 @@ final class ShortcutTests: XCTestCase {
         }
         XCTAssertTrue(Shortcut(keyCode: UInt32(kVK_ANSI_V), modifiers: [.command, .option]).isValid)
     }
+
+    func testMenuKeyEquivalent() {
+        XCTAssertEqual(Shortcut.default.menuKeyEquivalent, "v")
+        XCTAssertNil(Shortcut(keyCode: UInt32(kVK_F5), modifiers: [.command]).menuKeyEquivalent)
+    }
 }

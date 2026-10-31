@@ -34,7 +34,10 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         if menu.numberOfItems > 0 { menu.addItem(.separator()) }
 
         let history = item("Clipboard History", #selector(openHistory))
-        history.toolTip = app.settings.shortcut.displayString
+        if let key = app.settings.shortcut.menuKeyEquivalent {
+            history.keyEquivalent = key
+            history.keyEquivalentModifierMask = app.settings.shortcut.modifierFlags
+        }
         menu.addItem(history)
         menu.addItem(item(app.settings.isPaused ? "Resume Monitoring" : "Pause Monitoring", #selector(togglePause)))
         menu.addItem(.separator())

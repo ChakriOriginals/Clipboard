@@ -36,6 +36,12 @@ struct Shortcut: Codable, Equatable, Sendable {
         return result
     }
 
+    /// The key as a menu key equivalent (letters and digits only), so menus can show the shortcut.
+    var menuKeyEquivalent: String? {
+        guard let name = Self.keyNames[Int(keyCode)], name.count == 1, name.first!.isLetter || name.first!.isNumber else { return nil }
+        return name.lowercased()
+    }
+
     var displayString: String {
         var s = ""
         if modifierFlags.contains(.control) { s += "⌃" }

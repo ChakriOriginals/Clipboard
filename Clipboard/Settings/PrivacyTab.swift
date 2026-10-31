@@ -65,8 +65,13 @@ struct PrivacyTab: View {
         }
     }
 
+    private static let knownNames = ["com.apple.keychainaccess": "Keychain Access", "com.apple.Passwords": "Passwords",
+                                     "com.1password.1password": "1Password", "com.bitwarden.desktop": "Bitwarden"]
+
     static func appName(for bundleID: String) -> String {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            return knownNames[bundleID] ?? bundleID
+        }
         return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
     }
 }
