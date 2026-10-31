@@ -23,4 +23,4 @@ from crafted clipboard content, opening URLs or files without an explicit user a
 Out of scope (documented limitations): malware already running as your user, an attacker with your unlocked
 Mac, and the best-effort nature of app exclusions and secret detection.
 
-Audit reports live in [docs/security-audit/](docs/security-audit/).
+A summary of past security audits is in [docs/security-audit/](docs/security-audit/README.md).

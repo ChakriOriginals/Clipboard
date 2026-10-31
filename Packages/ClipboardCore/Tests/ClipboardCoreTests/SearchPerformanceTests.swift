@@ -23,7 +23,7 @@ final class SearchPerformanceTests: XCTestCase {
         #if DEBUG
         let limit = 0.25
         #else
-        let limit = 0.05 // PRODUCT_SPEC S3
+        let limit = 0.05 // release target: 50 ms for 10,000 items
         #endif
         XCTAssertLessThan(median, limit, "median \(median)s")
         print("Search 10k median: \(String(format: "%.1f", median * 1000)) ms")

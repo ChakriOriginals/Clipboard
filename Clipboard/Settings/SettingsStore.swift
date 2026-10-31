@@ -6,7 +6,7 @@ enum PanelPosition: String, CaseIterable, Sendable {
     case center, nearMouse
 }
 
-/// Typed, observable wrapper over UserDefaults. Defaults follow PRODUCT_SPEC §5.
+/// Typed, observable wrapper over UserDefaults.
 @MainActor
 @Observable
 final class SettingsStore {

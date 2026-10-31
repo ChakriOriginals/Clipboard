@@ -13,7 +13,7 @@ All notable changes to this project are documented here. The format follows
 - Renamed from ClipFlow to **Clipboard**. Existing history, settings and permissions carry over: the bundle identifier is unchanged and the data folder moves from `Application Support/ClipFlow` to `Application Support/Clipboard` on first launch.
 
 ### Security
-Fixes from the redesign review and security audit run 2 (see `docs/security-audit/run-2/`):
+Fixes from the redesign review and the second security audit:
 - The rename no longer changes the history encryption constants; a test opens a history written by 0.1.0.
 - Previews show control characters (backspace, carriage return, escape) and blank-looking fillers, escape
   file names, flag truncation correctly, and show text that pastes alongside an image or files.
@@ -42,7 +42,7 @@ Fixes from the redesign review and security audit run 2 (see `docs/security-audi
 - Settings, first-run onboarding, launch at login.
 
 ### Security
-Fixes from the pre-release code review and security audit (run 1, see `docs/security-audit/`):
+Fixes from the pre-release code review and the first security audit:
 - HTML preview stripping is linear; a crafted HTML-only copy could previously pin a CPU core for hours.
 - Per-change limits on item count and total bytes; overflow-safe image dimension checks; lazy, bounded TIFF on restore.
 - Capture is serialized and coalesced; history order uses the observed copy time.
