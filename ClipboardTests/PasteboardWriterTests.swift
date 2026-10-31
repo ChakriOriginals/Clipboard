@@ -7,8 +7,8 @@ import XCTest
 final class PasteboardWriterTests: XCTestCase {
     var pb: NSPasteboard!
 
-    override func setUp() { pb = makeTestPasteboard() }
-    override func tearDown() { pb.releaseGlobally() }
+    override func setUp() async throws { pb = makeTestPasteboard() }
+    override func tearDown() async throws { pb.releaseGlobally() }
 
     func testWriterRestoresTextAndReturnsChangeCount() {
         let content = ClipContent(items: [[Representation(type: PasteboardType.plainText, data: Data("héllo 👋".utf8)),

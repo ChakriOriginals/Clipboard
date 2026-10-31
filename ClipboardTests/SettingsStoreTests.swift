@@ -7,11 +7,11 @@ final class SettingsStoreTests: XCTestCase {
     var defaults: UserDefaults!
     var suite: String!
 
-    override func setUp() {
+    override func setUp() async throws {
         (defaults, suite) = makeTestDefaults()
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
     }
 

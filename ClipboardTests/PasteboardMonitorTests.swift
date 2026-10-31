@@ -12,7 +12,7 @@ final class PasteboardMonitorTests: XCTestCase {
     var access = PasteAccessState.allowed
     var monitor: PasteboardMonitor!
 
-    override func setUp() {
+    override func setUp() async throws {
         pb = makeTestPasteboard()
         snapshots = []
         skips = []
@@ -26,7 +26,7 @@ final class PasteboardMonitorTests: XCTestCase {
         monitor.start()
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         monitor.stop()
         pb.releaseGlobally()
     }
